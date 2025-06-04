@@ -1,0 +1,6 @@
+- name: Test inventaire
+  hosts: glpi
+  tasks:
+    - name: Afficher un message
+      debug:
+        msg: "GLPI est joignable"
