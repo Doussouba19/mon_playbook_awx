@@ -1,0 +1,45 @@
+---
+- name: Set up Prometheus, Grafana, and Node Exporter on EC2 instances
+  hosts: all
+  become: yes
+  tasks:
+    - name: Install Docker
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+    - name: Start Docker
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+    - name: Run Node Exporter
+      docker_container:
+        name: node_exporter
+        image: prom/node-exporter:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9100:9100"
+- name: Set up Prometheus and Grafana on monitoring server
+  hosts: monitoring
+  become: yes
+  tasks:
+    - name: Run Prometheus
+      docker_container:
+        name: prometheus
+        image: prom/prometheus:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "9091:9091"
+    - name: Run Grafana
+      docker_container:
+        name: grafana
+        image: grafana/grafana:latest
+        state: started
+        restart_policy: always
+        ports:
+          - "3000:3000"
