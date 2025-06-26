@@ -1,90 +1,73 @@
-- name: Installer iTop (Apache, PHP, MySQL, fichiers)
+---
+- name: Préparer et déployer iTop 3.x sur le serveur
   hosts: itop
   become: yes
 
-  tasks:
-    - name: Mettre à jour la liste des paquets
-      apt:
-        update_cache: yes
+  vars:
+    itop_download_url: "https://sourceforge.net/projects/itop/files/latest/download"
+    itop_install_dir: "/var/www/html/web"
 
-    - name: Installer les paquets requis
+  tasks:
+    - name: Installer les paquets requis (Apache, PHP, unzip, wget)
       apt:
         name:
           - apache2
           - php
           - php-mysql
           - php-xml
+          - php-mbstring
+          - php-curl
+          - php-zip
+          - php-gd
+          - php-intl
+          - php-bcmath
           - php-cli
           - unzip
           - wget
-          - mysql-server
         state: present
+        update_cache: yes
 
-    - name: Activer le module rewrite d'Apache
-      command: a2enmod rewrite
+    - name: Activer module rewrite d'Apache
+      apache2_module:
+        name: rewrite
+        state: present
       notify: Restart Apache
 
-    - name: Ajouter un bloc Directory complet pour /var/www/html dans apache2.conf
-      blockinfile:
-        path: /etc/apache2/apache2.conf
-        block: |
-          <Directory /var/www/html/>
-              Options Indexes FollowSymLinks
-              AllowOverride All
-              Require all granted
-          </Directory>
-
-    - name: Télécharger iTop
+    - name: Télécharger iTop archive zip dans /tmp
       get_url:
-        url: https://sourceforge.net/projects/itop/files/latest/download
+        url: "{{ itop_download_url }}"
         dest: /tmp/itop.zip
+        mode: '0644'
 
-    - name: Créer le dossier temporaire pour extraction
+    - name: Supprimer l'ancien dossier iTop si existe
       file:
-        path: /tmp/itop
-        state: directory
-
-    - name: Décompresser iTop
-      unarchive:
-        src: /tmp/itop.zip
-        dest: /tmp/itop
-        remote_src: yes
-
-    - name: Supprimer le contenu du répertoire web existant
-      file:
-        path: /var/www/html
+        path: "{{ itop_install_dir }}"
         state: absent
 
-    - name: Recréer le répertoire web
+    - name: Créer dossier iTop
       file:
-        path: /var/www/html
+        path: "{{ itop_install_dir }}"
         state: directory
-
-    - name: Copier seulement le contenu utile vers /var/www/html
-      shell: |
-        shopt -s dotglob
-        cp -r /tmp/itop/* /var/www/html/
-      args:
-        executable: /bin/bash
-
-    - name: Créer un .htaccess pour redirection vers /web
-      copy:
-        dest: /var/www/html/.htaccess
-        content: |
-          DirectoryIndex web/index.php
-
-    - name: Appliquer les permissions
-      file:
-        path: /var/www/html
-        recurse: yes
         owner: www-data
         group: www-data
         mode: '0755'
 
-    - name: Supprimer le dossier temporaire
+    - name: Décompresser iTop dans le dossier web
+      unarchive:
+        src: /tmp/itop.zip
+        dest: "{{ itop_install_dir }}"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+        owner: www-data
+        group: www-data
+
+    - name: Appliquer permissions sur dossier iTop
       file:
-        path: /tmp/itop
-        state: absent
+        path: "{{ itop_install_dir }}"
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
 
   handlers:
     - name: Restart Apache
