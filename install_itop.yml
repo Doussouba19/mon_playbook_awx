@@ -1,15 +1,16 @@
 ---
-- name: Installer iTop 3.x (paquets, téléchargement, Apache)
+- name: Installer iTop (Apache, PHP, MySQL, fichiers)
   hosts: itop
   become: yes
 
   vars:
-    itop_url: "https://sourceforge.net/projects/itop/files/latest/download"
-    itop_tmp_zip: "/tmp/itop.zip"
+    itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
+    itop_zip_path: "/tmp/iTop-3.2.1.zip"
+    itop_web_dir: "/var/www/html"
     itop_extract_dir: "/tmp/itop_extract"
-    itop_install_dir: "/var/www/html/web"
 
   tasks:
+
     - name: Mettre à jour la liste des paquets
       apt:
         update_cache: yes
@@ -18,64 +19,98 @@
       apt:
         name:
           - apache2
+          - mysql-server
           - php
           - php-mysql
-          - php-xml
-          - php-mbstring
           - php-curl
+          - php-mbstring
+          - php-xml
+          - php-soap
           - php-zip
           - unzip
           - wget
+          - python3-pip
         state: present
 
-    - name: Activer module rewrite d'Apache
-      apache2_module:
-        name: rewrite
-        state: present
+    - name: Activer le module rewrite d'Apache
+      command: a2enmod rewrite
       notify: Restart Apache
 
-    - name: Télécharger iTop archive zip dans /tmp
+    - name: Ajouter un bloc Directory complet pour /var/www/html dans apache2.conf
+      blockinfile:
+        path: /etc/apache2/apache2.conf
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR ITOP"
+        block: |
+          <Directory /var/www/html>
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
+          </Directory>
+
+    - name: Télécharger iTop
       get_url:
         url: "{{ itop_url }}"
-        dest: "{{ itop_tmp_zip }}"
+        dest: "{{ itop_zip_path }}"
         mode: '0644'
+        force: yes
 
-    - name: Supprimer ancien dossier iTop s'il existe
-      file:
-        path: "{{ itop_install_dir }}"
-        state: absent
-
-    - name: Créer dossier iTop
-      file:
-        path: "{{ itop_install_dir }}"
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: '0755'
-
-    - name: Créer dossier temporaire pour extraction
+    - name: Créer le dossier temporaire pour extraction
       file:
         path: "{{ itop_extract_dir }}"
         state: directory
+        mode: '0755'
 
-    - name: Décompresser iTop dans le dossier temporaire
+    - name: Décompresser iTop
       unarchive:
-        src: "{{ itop_tmp_zip }}"
+        src: "{{ itop_zip_path }}"
         dest: "{{ itop_extract_dir }}"
         remote_src: yes
 
-    - name: Déplacer contenu dans le dossier web
-      command: mv {{ itop_extract_dir }}/* {{ itop_install_dir }}
-      args:
-        creates: "{{ itop_install_dir }}/index.php"
-
-    - name: Appliquer permissions sur le dossier iTop
+    - name: Supprimer le contenu du répertoire web existant
       file:
-        path: "{{ itop_install_dir }}"
-        recurse: yes
+        path: "{{ itop_web_dir }}"
+        state: absent
+
+    - name: Recréer le répertoire web
+      file:
+        path: "{{ itop_web_dir }}"
+        state: directory
         owner: www-data
         group: www-data
         mode: '0755'
+
+    - name: Copier les fichiers iTop vers /var/www/html (racine directe)
+      copy:
+        src: "{{ itop_extract_dir }}/"
+        dest: "{{ itop_web_dir }}/"
+        remote_src: yes
+        owner: www-data
+        group: www-data
+
+    - name: Créer un .htaccess pour redirection vers /web
+      copy:
+        dest: "{{ itop_web_dir }}/.htaccess"
+        content: |
+          RewriteEngine On
+          RewriteCond %{REQUEST_URI} !^/web/
+          RewriteRule ^(.*)$ /web/$1 [L]
+
+    - name: Appliquer les permissions
+      file:
+        path: "{{ itop_web_dir }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Supprimer le dossier temporaire
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: absent
+
+    - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
 
   handlers:
     - name: Restart Apache
