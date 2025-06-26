@@ -1,6 +1,6 @@
 ---
 - name: Configurer iTop (Base de données + Apache)
-  hosts: all
+  hosts: itop
   become: yes
   vars:
     mysql_root_user: root
