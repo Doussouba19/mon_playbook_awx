@@ -1,6 +1,6 @@
 ---
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
-  hosts: all
+  hosts: itop
   become: yes
 
   vars:
