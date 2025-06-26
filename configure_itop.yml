@@ -1,10 +1,13 @@
 ---
 - name: Configurer iTop (Base de données + Apache)
-  hosts: all
+  hosts: itop-server
   become: yes
   vars:
+    ansible_python_interpreter: /usr/bin/python3
+    mysql_root_user: root
+    mysql_root_password: "azerty"  # <-- À modifier
     db_name: itop
-    db_user: itop
+    db_user: itopuser
     db_password: itoppass
 
   tasks:
@@ -12,63 +15,47 @@
       apt:
         name: python3-pip
         state: present
+      become: yes
 
     - name: Installer le module PyMySQL pour Python 3
-      apt:
-        name: python3-pymysql
-        state: present
+      pip:
+        name: PyMySQL
+        executable: pip3
 
     - name: Créer la base de données iTop
       mysql_db:
         name: "{{ db_name }}"
         state: present
+      vars:
+        ansible_mysql_user: "{{ mysql_root_user }}"
+        ansible_mysql_password: "{{ mysql_root_password }}"
 
-    - name: Créer l'utilisateur MySQL pour iTop
+    - name: Créer l'utilisateur MySQL pour iTop sur localhost
       mysql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         priv: "{{ db_name }}.*:ALL"
         host: localhost
         state: present
+      vars:
+        ansible_mysql_user: "{{ mysql_root_user }}"
+        ansible_mysql_password: "{{ mysql_root_password }}"
 
-    - name: Copier fichier de configuration Apache iTop (directement dans le playbook)
-      copy:
-        dest: /etc/apache2/sites-available/itop.conf
-        owner: root
-        group: root
-        mode: '0644'
-        content: |
-          <VirtualHost *:80>
-              ServerAdmin webmaster@localhost
-              DocumentRoot /var/www/html
-
-              <Directory /var/www/html>
-                  Options Indexes FollowSymLinks
-                  AllowOverride All
-                  Require all granted
-              </Directory>
-
-              ErrorLog ${APACHE_LOG_DIR}/itop_error.log
-              CustomLog ${APACHE_LOG_DIR}/itop_access.log combined
-          </VirtualHost>
-
-    - name: Activer site iTop Apache
-      command: a2ensite itop.conf
-      args:
-        creates: /etc/apache2/sites-enabled/itop.conf
-
-    - name: Activer le module rewrite Apache
-      apache2_module:
-        name: rewrite
+    - name: Créer l'utilisateur MySQL pour iTop depuis n'importe quelle IP
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        host: "%"
         state: present
+      vars:
+        ansible_mysql_user: "{{ mysql_root_user }}"
+        ansible_mysql_password: "{{ mysql_root_password }}"
 
-    - name: Désactiver le site Apache par défaut
-      command: a2dissite 000-default.conf
-      args:
-        removes: /etc/apache2/sites-enabled/000-default.conf
-      ignore_errors: yes
-
-    - name: Redémarrer Apache pour appliquer les changements
-      service:
-        name: apache2
-        state: restarted
+    - name: Rappel - vérifier bind-address dans MySQL
+      debug:
+        msg: |
+          Vérifie que dans /etc/mysql/mysql.conf.d/mysqld.cnf la ligne suivante est présente et non commentée:
+          bind-address = 0.0.0.0
+          Puis redémarre MySQL:
+          sudo systemctl restart mysql
