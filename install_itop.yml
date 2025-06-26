@@ -8,7 +8,6 @@
     itop_zip_path: "/tmp/iTop-3.2.1.zip"
     itop_web_dir: "/var/www/html"
     itop_extract_dir: "/tmp/itop_extract"
-    itop_extracted_path: "/tmp/itop_extract/web"  # Défini manuellement ici
 
   tasks:
 
@@ -40,6 +39,7 @@
     - name: Autoriser les .htaccess dans Apache
       lineinfile:
         path: /etc/apache2/apache2.conf
+        regexp: '^<Directory /var/www/>'
         insertafter: '^<Directory /var/www/>'
         line: '    AllowOverride All'
         state: present
@@ -76,8 +76,13 @@
         group: www-data
         mode: '0755'
 
-    - name: Copier les fichiers vers /var/www/html
-      command: rsync -a {{ itop_extracted_path }}/ {{ itop_web_dir }}/
+    - name: Copier les fichiers iTop vers /var/www/html (avec web/)
+      copy:
+        src: "{{ itop_extract_dir }}/"
+        dest: "{{ itop_web_dir }}/"
+        remote_src: yes
+        owner: www-data
+        group: www-data
 
     - name: Créer un .htaccess pour redirection vers /web
       copy:
