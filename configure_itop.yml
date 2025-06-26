@@ -1,13 +1,15 @@
-- name: Installer iTop en mode silencieux (version 3.x+)
+---
+- name: Configurer MySQL et installer iTop 3.x en mode silencieux
   hosts: itop
   become: yes
 
   vars:
     mysql_root_user: root
-    mysql_root_password: "root"
+    mysql_root_password: "root"     # Remplacer par ton mot de passe root MySQL
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
+    itop_install_dir: "/var/www/html/web"
 
   tasks:
     - name: Modifier bind-address pour autoriser toutes les connexions
@@ -15,31 +17,34 @@
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
         regexp: '^bind-address\s*='
         line: 'bind-address = 0.0.0.0'
+      notify: Restart MySQL
 
     - name: Redémarrer MySQL
       service:
         name: mysql
         state: restarted
 
-    - name: Installer python3-full
+    - name: Installer python3-full et pip
       apt:
-        name: python3-full
+        name:
+          - python3-full
+          - python3-pip
         state: present
         update_cache: yes
 
-    - name: Installer PyMySQL
-      command: python3 -m pip install pymysql --break-system-packages
-      args:
-        creates: /usr/local/lib/python3*/dist-packages/pymysql
+    - name: Installer PyMySQL via pip
+      pip:
+        name: pymysql
+        executable: pip3
 
-    - name: Créer la base de données iTop
+    - name: Créer base de données iTop
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer l’utilisateur iTop
+    - name: Créer utilisateur iTop et droits
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
@@ -49,9 +54,9 @@
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer le fichier XML de configuration silencieuse
+    - name: Copier le fichier XML de configuration silencieuse pour iTop 3.x
       copy:
-        dest: /var/www/html/web/setup/itop-config-silent.xml
+        dest: "{{ itop_install_dir }}/setup/itop-config-silent.xml"
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
           <itop_install>
@@ -75,9 +80,9 @@
             </selected_modules>
           </itop_install>
 
-    - name: Remplacer sort() par un bloc sécurisé
+    - name: Remplacer sort() par un bloc sécurisé dans unattended-install.php
       replace:
-        path: /var/www/html/web/setup/unattended-install/unattended-install.php
+        path: "{{ itop_install_dir }}/setup/unattended-install/unattended-install.php"
         regexp: '^\s*sort\(\$aSelectedModules\);'
         replace: |
           if (!is_array($aSelectedModules)) {
@@ -85,24 +90,24 @@
           }
           sort($aSelectedModules);
 
-    - name: Créer le dossier requis pour la compilation
+    - name: Créer dossier datamodels/latest s'il n'existe pas
       file:
-        path: /var/www/html/web/datamodels/latest
+        path: "{{ itop_install_dir }}/datamodels/latest"
         state: directory
         owner: www-data
         group: www-data
         mode: '0755'
 
-    - name: Appliquer les permissions sur /var/www/html
+    - name: Appliquer permissions sur dossier iTop
       file:
-        path: /var/www/html
+        path: "{{ itop_install_dir }}"
         recurse: yes
-        state: directory
         owner: www-data
         group: www-data
         mode: '0755'
 
-    - name: Lancer l’installation silencieuse via unattended-install.php (iTop 3.x+)
-      command: php unattended-install.php --param-file=../itop-config-silent.xml
+    - name: Lancer installation silencieuse iTop 3.x via unattended-install.php
+      command: >
+        php unattended-install.php --param-file=../itop-config-silent.xml
       args:
-        chdir: /var/www/html/web/setup/unattended-install
+        chdir: "{{ itop_install_dir }}/setup/unattended-install"
