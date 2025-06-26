@@ -1,27 +1,27 @@
 ---
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
-  hosts: itop
+  hosts: all
   become: yes
   vars:
-    itop_version: "3.2.1-1"
     itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
-    itop_install_dir: "/var/www/html/itop"
+    itop_zip_path: "/tmp/iTop-3.2.1.zip"
+    itop_web_dir: "/var/www/html"
 
   tasks:
     - name: Installer les paquets requis
       apt:
         name:
           - apache2
+          - mysql-server
           - php
           - php-mysql
-          - php-xml
           - php-curl
           - php-mbstring
-          - php-gd
+          - php-xml
+          - php-zip
           - unzip
           - wget
-          - mysql-client
-          - mysql-server
+          - python3-pip
         state: present
         update_cache: yes
 
@@ -40,23 +40,20 @@
     - name: Télécharger iTop
       get_url:
         url: "{{ itop_url }}"
-        dest: "/tmp/iTop-{{ itop_version }}.zip"
+        dest: "{{ itop_zip_path }}"
         mode: '0644'
+        force: yes
 
     - name: Décompresser iTop dans le répertoire web
       unarchive:
-        src: "/tmp/iTop-{{ itop_version }}.zip"
-        dest: "/var/www/html/"
+        src: "{{ itop_zip_path }}"
+        dest: "{{ itop_web_dir }}"
         remote_src: yes
+        extra_opts: [--strip-components=1]
 
-    - name: Renommer le dossier en itop
-      command: mv "/var/www/html/web" "{{ itop_install_dir }}"
-      args:
-        creates: "{{ itop_install_dir }}"
-
-    - name: Appliquer les bonnes permissions
+    - name: Appliquer les bonnes permissions sur le répertoire web
       file:
-        path: "{{ itop_install_dir }}"
+        path: "{{ itop_web_dir }}"
         owner: www-data
         group: www-data
         recurse: yes
