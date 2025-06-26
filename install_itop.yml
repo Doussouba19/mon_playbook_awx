@@ -2,10 +2,12 @@
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
   hosts: all
   become: yes
+
   vars:
     itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
     itop_zip_path: "/tmp/iTop-3.2.1.zip"
     itop_web_dir: "/var/www/html"
+    itop_extract_dir: "/tmp/itop_extract"
 
   tasks:
     - name: Installer les paquets requis
@@ -44,23 +46,40 @@
         mode: '0644'
         force: yes
 
-    - name: Décompresser iTop dans un dossier temporaire
+    - name: Créer le dossier temporaire pour l'extraction
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Décompresser iTop dans le dossier temporaire
       unarchive:
         src: "{{ itop_zip_path }}"
-        dest: "/tmp/itop_extract"
+        dest: "{{ itop_extract_dir }}"
         remote_src: yes
-        extra_opts: ["-o"]
+
+    - name: Vider le répertoire web existant
+      file:
+        path: "{{ itop_web_dir }}"
+        state: absent
+
+    - name: Recréer le répertoire web
+      file:
+        path: "{{ itop_web_dir }}"
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
 
     - name: Copier les fichiers extraits vers le répertoire web
-      command: rsync -a /tmp/itop_extract/ "{{ itop_web_dir }}/"
-      become_user: www-data
+      command: rsync -a {{ itop_extract_dir }}/ {{ itop_web_dir }}/
 
     - name: Supprimer le dossier temporaire d'extraction
       file:
-        path: /tmp/itop_extract
+        path: "{{ itop_extract_dir }}"
         state: absent
 
-    - name: Appliquer les bonnes permissions sur le répertoire web
+    - name: Appliquer les bonnes permissions
       file:
         path: "{{ itop_web_dir }}"
         owner: www-data
