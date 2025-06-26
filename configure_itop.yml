@@ -11,7 +11,6 @@
     itop_db_password: itoppass
 
   tasks:
-
     - name: Modifier bind-address pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
@@ -68,17 +67,26 @@
         dest: /var/www/html/itop-config-silent.xml
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
-          <parameters>
-            <database_host>localhost</database_host>
-            <database_name>{{ itop_db_name }}</database_name>
-            <database_user>{{ itop_db_user }}</database_user>
-            <database_pwd>{{ itop_db_password }}</database_pwd>
-            <admin_account>admin</admin_account>
-            <admin_pwd>admin</admin_pwd>
-            <admin_pwd_confirm>admin</admin_pwd_confirm>
-            <language>fr</language>
-            <sample_data>yes</sample_data>
-          </parameters>
+          <itop_install>
+            <target_env>production</target_env>
+
+            <database>
+              <server>localhost</server>
+              <user>{{ itop_db_user }}</user>
+              <pwd>{{ itop_db_password }}</pwd>
+              <name>{{ itop_db_name }}</name>
+              <prefix>itop_</prefix>
+            </database>
+
+            <selected_modules>
+              <module>authent-local</module>
+              <module>itop-config-mgmt</module>
+              <module>itop-tickets</module>
+              <module>itop-incident-mgmt</module>
+              <module>itop-request-mgmt</module>
+              <module>itop-change-mgmt</module>
+            </selected_modules>
+          </itop_install>
 
     - name: Lancer l’installation silencieuse de iTop
       command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
