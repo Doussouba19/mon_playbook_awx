@@ -65,7 +65,7 @@
 
     - name: Créer fichier XML de configuration silencieuse
       copy:
-        dest: /var/www/html/web/setup/itop-config-silent.xml
+        dest: /var/www/html/web/itop-config-silent.xml
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
           <parameters>
@@ -81,6 +81,6 @@
           </parameters>
 
     - name: Lancer l’installation silencieuse de iTop
-      command: php setup.php --production --db-setup --config-file=itop-config-silent.xml
+      command: php unattended-install --production --db-setup --config-file=../itop-config-silent.xml
       args:
         chdir: /var/www/html/web/setup
