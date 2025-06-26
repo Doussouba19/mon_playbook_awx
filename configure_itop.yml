@@ -1,4 +1,4 @@
-- name: Installer iTop en mode silencieux
+- name: Installer iTop en mode silencieux (version 3.x+)
   hosts: itop
   become: yes
 
@@ -102,7 +102,7 @@
         group: www-data
         mode: '0755'
 
-    - name: Lancer l’installation silencieuse via install.php
-      command: php install.php AUTOINSTALL=itop-config-silent.xml
+    - name: Lancer l’installation silencieuse via unattended-install.php (iTop 3.x+)
+      command: php unattended-install.php --param-file=../itop-config-silent.xml
       args:
-        chdir: /var/www/html/web/setup
+        chdir: /var/www/html/web/setup/unattended-install
