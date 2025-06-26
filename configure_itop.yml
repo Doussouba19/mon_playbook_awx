@@ -66,12 +66,15 @@
             <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
           </itop_install>
 
-    - name: Corriger sort() dans unattended-install.php si nécessaire
-      lineinfile:
+    - name: Remplacer le sort() par un bloc sécurisé dans unattended-install.php
+      replace:
         path: /var/www/html/web/setup/unattended-install/unattended-install.php
-        insertafter: '^\s*sort\(\$aSelectedModules\);'
-        line: |
-          if (!is_array($aSelectedModules)) { $aSelectedModules = explode(',', $aSelectedModules); }
+        regexp: '^\s*sort\(\$aSelectedModules\);'
+        replace: |
+          if (!is_array($aSelectedModules)) {
+              $aSelectedModules = explode(',', $aSelectedModules);
+          }
+          sort($aSelectedModules);
 
     - name: S'assurer que /var/www/html a les bonnes permissions
       file:
