@@ -8,6 +8,7 @@
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
+    itop_web_dir: "/var/www/html"
 
   tasks:
     - name: Modifier bind-address pour autoriser toutes les connexions
@@ -60,6 +61,26 @@
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
+
+    - name: Créer le fichier de configuration silent pour iTop
+      copy:
+        dest: "{{ itop_web_dir }}/web/conf/params.env"
+        content: |
+          DB_TYPE=mysqli
+          DB_HOST=localhost
+          DB_NAME={{ itop_db_name }}
+          DB_USER={{ itop_db_user }}
+          DB_PWD={{ itop_db_password }}
+          DB_CHARSET=utf8
+          DB_COLLATE=
+          LANGUAGE=en_us
+          INSTALLATION_MODE=PRODUCTION
+          MODULES=authent-local,itop-endusers,itop-attachments
+
+    - name: Lancer l'installation silencieuse de iTop
+      command: php setup.php --silent
+      args:
+        chdir: "{{ itop_web_dir }}/web"
 
     - name: Redémarrer Apache
       service:
