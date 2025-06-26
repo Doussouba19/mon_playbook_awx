@@ -1,0 +1,60 @@
+---
+- name: Installer SNMP Exporter sur 10.0.57.36
+  hosts: snmp_exporter
+  become: yes
+  vars:
+    snmp_exporter_version: "0.22.0"
+    snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
+    install_dir: "/opt/snmp_exporter"
+
+  tasks:
+    - name: Installer wget et tar
+      apt:
+        name: [wget, tar]
+        state: present
+        update_cache: yes
+
+    - name: Créer dossier d'installation
+      file:
+        path: "{{ install_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Télécharger SNMP Exporter
+      get_url:
+        url: "{{ snmp_exporter_url }}"
+        dest: "/tmp/snmp_exporter.tar.gz"
+        mode: '0644'
+
+    - name: Extraire SNMP Exporter
+      unarchive:
+        src: "/tmp/snmp_exporter.tar.gz"
+        dest: "{{ install_dir }}"
+        remote_src: yes
+        extra_opts: [--strip-components=1]
+
+    - name: Créer un service systemd pour snmp_exporter
+      copy:
+        dest: /etc/systemd/system/snmp_exporter.service
+        content: |
+          [Unit]
+          Description=Prometheus SNMP Exporter
+          After=network.target
+
+          [Service]
+          ExecStart={{ install_dir }}/snmp_exporter
+          Restart=always
+          User=root
+          Group=root
+
+          [Install]
+          WantedBy=multi-user.target
+      mode: '0644'
+
+    - name: Démarrer et activer le service snmp_exporter
+      systemd:
+        name: snmp_exporter
+        enabled: yes
+        state: started
