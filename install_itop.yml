@@ -27,8 +27,6 @@
           - php-xml
           - php-soap
           - php-zip
-          - php-apcu        # extension recommandée
-          - php-ldap        # extension optionnelle
           - unzip
           - wget
           - python3-pip
@@ -39,23 +37,12 @@
       notify: Restart Apache
 
     - name: Autoriser l'utilisation des .htaccess dans Apache
-      replace:
+      lineinfile:
         path: /etc/apache2/apache2.conf
-        regexp: '(<Directory /var/www/>)\s*AllowOverride None'
-        replace: '\1\n\tAllowOverride All'
-      notify: Restart Apache
-
-    - name: S'assurer que Apache est démarré et activé
-      service:
-        name: apache2
-        state: started
-        enabled: yes
-
-    - name: S'assurer que MySQL est démarré et activé
-      service:
-        name: mysql
-        state: started
-        enabled: yes
+        regexp: '^<Directory /var/www/>'
+        insertafter: '^<Directory /var/www/>'
+        line: '    AllowOverride All'
+        state: present
 
     - name: Télécharger iTop
       get_url:
@@ -76,6 +63,18 @@
         dest: "{{ itop_extract_dir }}"
         remote_src: yes
 
+    - name: Trouver le dossier iTop extrait
+      find:
+        paths: "{{ itop_extract_dir }}"
+        file_type: directory
+        patterns: "iTop-*"
+        recurse: false
+      register: itop_folder
+
+    - name: Définir le chemin complet du dossier iTop
+      set_fact:
+        itop_extracted_path: "{{ itop_folder.files[0].path }}"
+
     - name: Vider le répertoire web existant
       file:
         path: "{{ itop_web_dir }}"
@@ -90,12 +89,15 @@
         mode: '0755'
 
     - name: Copier les fichiers extraits vers le répertoire web
-      command: rsync -a {{ itop_extract_dir }}/ {{ itop_web_dir }}/
+      command: rsync -a {{ itop_extracted_path }}/ {{ itop_web_dir }}/
 
-    - name: Supprimer le dossier temporaire d'extraction
-      file:
-        path: "{{ itop_extract_dir }}"
-        state: absent
+    - name: Créer un fichier .htaccess pour rediriger vers /web
+      copy:
+        dest: "{{ itop_web_dir }}/.htaccess"
+        content: |
+          RewriteEngine On
+          RewriteCond %{REQUEST_URI} !^/web/
+          RewriteRule ^(.*)$ /web/$1 [L]
 
     - name: Appliquer les bonnes permissions sur le répertoire web
       file:
@@ -104,20 +106,15 @@
         group: www-data
         recurse: yes
 
-    - name: Créer un fichier .htaccess pour rediriger vers /web
-      copy:
-        dest: /var/www/html/.htaccess
-        content: |
-          RedirectMatch ^/$ /web/
-        owner: www-data
-        group: www-data
-        mode: '0644'
+    - name: Supprimer le dossier temporaire d'extraction
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: absent
 
     - name: Redémarrer Apache
       service:
         name: apache2
         state: restarted
-
   handlers:
     - name: Restart Apache
       service:
