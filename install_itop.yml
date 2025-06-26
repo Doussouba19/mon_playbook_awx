@@ -6,6 +6,7 @@
   vars:
     itop_url: "https://sourceforge.net/projects/itop/files/latest/download"
     itop_tmp_zip: "/tmp/itop.zip"
+    itop_extract_dir: "/tmp/itop_extract"
     itop_install_dir: "/var/www/html/web"
 
   tasks:
@@ -52,14 +53,19 @@
         group: www-data
         mode: '0755'
 
-    - name: Décompresser iTop dans un dossier temporaire
+    - name: Créer dossier temporaire pour extraction
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: directory
+
+    - name: Décompresser iTop dans le dossier temporaire
       unarchive:
         src: "{{ itop_tmp_zip }}"
-        dest: "/tmp/itop_extract"
+        dest: "{{ itop_extract_dir }}"
         remote_src: yes
 
-    - name: Déplacer contenu décompressé dans le dossier web
-      command: mv /tmp/itop_extract/* "{{ itop_install_dir }}"
+    - name: Déplacer contenu dans le dossier web
+      command: mv {{ itop_extract_dir }}/* {{ itop_install_dir }}
       args:
         creates: "{{ itop_install_dir }}/index.php"
 
