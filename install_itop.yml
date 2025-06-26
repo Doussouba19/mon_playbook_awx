@@ -3,13 +3,9 @@
   hosts: itop
   become: yes
   vars:
-    itop_version: "3.1.1"
-    itop_url: "https://sourceforge.net/projects/itop/files/iTop%20Stable%20Releases/3.1.1/iTop-3.1.1.zip/download"
+    itop_version: "3.2.1-1"
+    itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
     itop_install_dir: "/var/www/html/itop"
-    db_name: "itop_db"
-    db_user: "itop_user"
-    db_password: "itop_password"
-    mysql_root_password: "rootpass"
 
   tasks:
     - name: Installer les paquets requis
@@ -54,12 +50,11 @@
         remote_src: yes
 
     - name: Renommer le dossier en itop
-      command: mv "/var/www/html/iTop-{{ itop_version }}" "{{ itop_install_dir }}"
+      command: mv "/var/www/html/web" "{{ itop_install_dir }}"
       args:
-        removes: "/var/www/html/iTop-{{ itop_version }}"
         creates: "{{ itop_install_dir }}"
 
-    - name: Appliquer les bonnes permissions sur le dossier iTop
+    - name: Appliquer les bonnes permissions
       file:
         path: "{{ itop_install_dir }}"
         owner: www-data
