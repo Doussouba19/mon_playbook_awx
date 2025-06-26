@@ -2,15 +2,16 @@
 - name: Configurer iTop (Base de données + Apache)
   hosts: itop
   become: yes
+
   vars:
     mysql_root_user: root
     mysql_root_password: "root"
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
-    itop_web_dir: "/var/www/html"
 
   tasks:
+
     - name: Modifier bind-address pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
@@ -62,27 +63,24 @@
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer le fichier de configuration silent pour iTop
+    - name: Créer le fichier de configuration silent pour iTop (datamodel et DB info)
       copy:
-        dest: "{{ itop_web_dir }}/web/conf/params.env"
+        dest: /var/www/html/web/itop-config-silent.xml
         content: |
-          DB_TYPE=mysqli
-          DB_HOST=localhost
-          DB_NAME={{ itop_db_name }}
-          DB_USER={{ itop_db_user }}
-          DB_PWD={{ itop_db_password }}
-          DB_CHARSET=utf8
-          DB_COLLATE=
-          LANGUAGE=en_us
-          INSTALLATION_MODE=PRODUCTION
-          MODULES=authent-local,itop-endusers,itop-attachments
+          <?xml version="1.0" encoding="UTF-8"?>
+          <parameters>
+            <database_host>localhost</database_host>
+            <database_name>{{ itop_db_name }}</database_name>
+            <database_user>{{ itop_db_user }}</database_user>
+            <database_pwd>{{ itop_db_password }}</database_pwd>
+            <admin_account>admin</admin_account>
+            <admin_pwd>admin</admin_pwd>
+            <admin_pwd_confirm>admin</admin_pwd_confirm>
+            <language>fr</language>
+            <sample_data>yes</sample_data>
+          </parameters>
 
     - name: Lancer l'installation silencieuse de iTop
-      command: php setup.php --silent
+      command: php setup.php --production --db-setup --config-file=itop-config-silent.xml
       args:
-        chdir: "{{ itop_web_dir }}/web"
-
-    - name: Redémarrer Apache
-      service:
-        name: apache2
-        state: restarted
+        chdir: /var/www/html/web
