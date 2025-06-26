@@ -1,6 +1,6 @@
 ---
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
-  hosts: all
+  hosts: itop
   become: yes
 
   vars:
@@ -10,6 +10,11 @@
     itop_extract_dir: "/tmp/itop_extract"
 
   tasks:
+
+    - name: Mettre à jour la liste des paquets
+      apt:
+        update_cache: yes
+
     - name: Installer les paquets requis
       apt:
         name:
@@ -20,20 +25,20 @@
           - php-curl
           - php-mbstring
           - php-xml
+          - php-soap      # requis pour iTop
           - php-zip
           - unzip
           - wget
           - python3-pip
         state: present
-        update_cache: yes
 
-    - name: Démarrer Apache
+    - name: S'assurer que Apache est démarré et activé
       service:
         name: apache2
         state: started
         enabled: yes
 
-    - name: Démarrer MySQL
+    - name: S'assurer que MySQL est démarré et activé
       service:
         name: mysql
         state: started
@@ -79,9 +84,22 @@
         path: "{{ itop_extract_dir }}"
         state: absent
 
-    - name: Appliquer les bonnes permissions
+    - name: Appliquer les bonnes permissions sur le répertoire web
       file:
         path: "{{ itop_web_dir }}"
         owner: www-data
         group: www-data
         recurse: yes
+
+    - name: Rediriger automatiquement vers /web depuis la racine
+      copy:
+        dest: "/var/www/html/.htaccess"
+        content: "RedirectMatch ^/$ /web/"
+        owner: www-data
+        group: www-data
+        mode: '0644'
+
+    - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
