@@ -60,14 +60,30 @@
         dest: /tmp/
         remote_src: yes
 
-    - name: Restaurer le dossier itop_design
-      copy:
-        src: "{{ item }}"
-        dest: /var/www/html/itop_design
-        remote_src: yes
-      with_fileglob:
-        - "/tmp/iTop-*/itop_design"
-      notify: Fix permissions for itop_design
+    - name: Vérifier si le dossier iTop extrait existe
+      stat:
+        path: /tmp/iTop-*
+      register: itop_extracted
+
+    - name: Échec si aucun dossier iTop extrait trouvé
+      fail:
+        msg: "❌ Aucun dossier /tmp/iTop-* trouvé après extraction."
+      when: not itop_extracted.stat.exists
+
+    - name: Restaurer le dossier itop_design depuis l’archive extraite
+      shell: |
+        cp -r /tmp/iTop-*/itop_design /var/www/html/
+      args:
+        executable: /bin/bash
+
+    - name: Appliquer les permissions sur itop_design
+      file:
+        path: /var/www/html/itop_design
+        state: directory
+        recurse: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
 
     - name: Vérifier la présence du fichier user_rights.xml
       stat:
@@ -134,13 +150,3 @@
       command: php unattended-install.php --param-file=itop-config-silent.xml
       args:
         chdir: /var/www/html/web/setup/unattended-install
-
-  handlers:
-    - name: Fix permissions for itop_design
-      file:
-        path: /var/www/html/itop_design
-        state: directory
-        recurse: yes
-        owner: www-data
-        group: www-data
-        mode: '0755'
