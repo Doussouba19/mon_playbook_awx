@@ -1,6 +1,8 @@
+---
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
   hosts: itop
   become: yes
+
   tasks:
     - name: Installer paquets requis
       apt:
@@ -8,27 +10,86 @@
           - apache2
           - php
           - php-mysql
-          - mysql-server
+          - php-xml
+          - php-curl
+          - php-mbstring
+          - php-gd
           - unzip
           - wget
+          - mysql-client
+          - mysql-server
         state: present
         update_cache: yes
+
     - name: Démarrer Apache
       service:
         name: apache2
         state: started
         enabled: yes
+
     - name: Démarrer MySQL
       service:
         name: mysql
         state: started
         enabled: yes
+
     - name: Télécharger iTop
       get_url:
         url: "{{ itop_url }}"
-        dest: "/tmp/iTop.zip"
+        dest: "/tmp/iTop-{{ itop_version }}.zip"
+
     - name: Extraire iTop
       unarchive:
-        src: "/tmp/iTop.zip"
+        src: "/tmp/iTop-{{ itop_version }}.zip"
         dest: "/var/www/html/"
         remote_src: yes
+
+    - name: Renommer dossier iTop
+      command: mv "/var/www/html/iTop-{{ itop_version }}" "{{ itop_install_dir }}"
+      args:
+        removes: "/var/www/html/iTop-{{ itop_version }}"
+        creates: "{{ itop_install_dir }}"
+
+    - name: Définir permissions
+      file:
+        path: "{{ itop_install_dir }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Configurer MySQL root
+      mysql_user:
+        name: root
+        host_all: yes
+        password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+      ignore_errors: yes
+
+    - name: Créer la base de données
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Créer l'utilisateur iTop
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Télécharger le dump SQL démo
+      get_url:
+        url: "{{ itop_sql_dump_url }}"
+        dest: "/tmp/itop_demo.sql"
+
+    - name: Importer les données
+      mysql_db:
+        name: "{{ db_name }}"
+        state: import
+        target: "/tmp/itop_demo.sql"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
