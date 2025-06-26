@@ -81,7 +81,7 @@
             <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
           </itop_install>
 
-    - name: Lancer l’installation silencieuse de iTop
-      command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
-      args:
-        chdir: /var/www/html/web
+   # - name: Lancer l’installation silencieuse de iTop
+     # command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
+     # args:
+        #chdir: /var/www/html/web
