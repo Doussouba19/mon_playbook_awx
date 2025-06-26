@@ -1,16 +1,19 @@
 ---
-- name: Préparer et déployer iTop 3.x sur le serveur
+- name: Installer iTop 3.x (paquets, téléchargement, Apache)
   hosts: itop
   become: yes
 
   vars:
-    itop_version: "3.0.6"
-    itop_url: "https://sourceforge.net/projects/itop/files/iTop-{{ itop_version }}/itop-{{ itop_version }}.zip/download"
-    itop_zip: "/tmp/itop.zip"
+    itop_url: "https://sourceforge.net/projects/itop/files/latest/download"
+    itop_tmp_zip: "/tmp/itop.zip"
     itop_install_dir: "/var/www/html/web"
 
   tasks:
-    - name: Installer paquets requis (Apache, PHP, unzip, wget)
+    - name: Mettre à jour la liste des paquets
+      apt:
+        update_cache: yes
+
+    - name: Installer les paquets requis
       apt:
         name:
           - apache2
@@ -19,23 +22,24 @@
           - php-xml
           - php-mbstring
           - php-curl
+          - php-zip
           - unzip
           - wget
         state: present
-        update_cache: yes
 
     - name: Activer module rewrite d'Apache
       apache2_module:
         name: rewrite
         state: present
+      notify: Restart Apache
 
     - name: Télécharger iTop archive zip dans /tmp
       get_url:
         url: "{{ itop_url }}"
-        dest: "{{ itop_zip }}"
+        dest: "{{ itop_tmp_zip }}"
         mode: '0644'
 
-    - name: Supprimer l'ancien dossier iTop s'il existe
+    - name: Supprimer ancien dossier iTop s'il existe
       file:
         path: "{{ itop_install_dir }}"
         state: absent
@@ -48,24 +52,14 @@
         group: www-data
         mode: '0755'
 
-    - name: Décompresser iTop dans un dossier temporaire
+    - name: Décompresser iTop dans le dossier web
       unarchive:
-        src: "{{ itop_zip }}"
-        dest: /tmp/itop
+        src: "{{ itop_tmp_zip }}"
+        dest: "{{ itop_install_dir }}"
         remote_src: yes
-        owner: www-data
-        group: www-data
-        mode: '0755'
+        extra_opts: [--strip-components=1]
 
-    - name: Copier les fichiers extraits dans le dossier d'installation
-      command: rsync -a /tmp/itop/ "{{ itop_install_dir }}/"
-
-    - name: Supprimer le dossier temporaire
-      file:
-        path: /tmp/itop
-        state: absent
-
-    - name: Appliquer les permissions sur /var/www/html/web
+    - name: Appliquer les permissions sur dossier iTop
       file:
         path: "{{ itop_install_dir }}"
         recurse: yes
@@ -73,7 +67,8 @@
         group: www-data
         mode: '0755'
 
-    - name: Redémarrer Apache
+  handlers:
+    - name: Restart Apache
       service:
         name: apache2
         state: restarted
