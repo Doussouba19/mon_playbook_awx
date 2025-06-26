@@ -39,8 +39,7 @@
     - name: Ajouter un bloc Directory complet pour /var/www/html dans apache2.conf
       blockinfile:
         path: /etc/apache2/apache2.conf
-        marker: "# {mark} ANSIBLE ITOP CONFIG"
-        insertafter: EOF
+        marker: "# {mark} ANSIBLE MANAGED BLOCK FOR ITOP"
         block: |
           <Directory /var/www/html>
               Options Indexes FollowSymLinks
@@ -80,9 +79,9 @@
         group: www-data
         mode: '0755'
 
-    - name: Copier les fichiers iTop vers /var/www/html (avec web/)
+    - name: Copier les fichiers iTop vers /var/www/html (racine directe)
       copy:
-        src: "{{ itop_extract_dir }}/iTop-3.2.1-1-16749/"
+        src: "{{ itop_extract_dir }}/"
         dest: "{{ itop_web_dir }}/"
         remote_src: yes
         owner: www-data
