@@ -52,14 +52,18 @@
         group: www-data
         mode: '0755'
 
-    - name: Décompresser iTop dans le dossier web
+    - name: Décompresser iTop dans un dossier temporaire
       unarchive:
         src: "{{ itop_tmp_zip }}"
-        dest: "{{ itop_install_dir }}"
+        dest: "/tmp/itop_extract"
         remote_src: yes
-        extra_opts: [--strip-components=1]
 
-    - name: Appliquer les permissions sur dossier iTop
+    - name: Déplacer contenu décompressé dans le dossier web
+      command: mv /tmp/itop_extract/* "{{ itop_install_dir }}"
+      args:
+        creates: "{{ itop_install_dir }}/index.php"
+
+    - name: Appliquer permissions sur le dossier iTop
       file:
         path: "{{ itop_install_dir }}"
         recurse: yes
