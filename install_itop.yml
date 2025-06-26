@@ -6,11 +6,11 @@
   vars:
     itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
     itop_zip_path: "/tmp/iTop-3.2.1.zip"
-    itop_web_dir: "/var/www/html"
     itop_extract_dir: "/tmp/itop_extract"
+    itop_extracted_path: "/tmp/itop_extract/iTop-3.2.1-1-16749"
+    itop_web_dir: "/var/www/html"
 
   tasks:
-
     - name: Mettre à jour la liste des paquets
       apt:
         update_cache: yes
@@ -30,13 +30,14 @@
           - unzip
           - wget
           - python3-pip
+          - python3-full
         state: present
 
     - name: Activer le module rewrite d'Apache
       command: a2enmod rewrite
       notify: Restart Apache
 
-    - name: Autoriser l'utilisation des .htaccess dans Apache
+    - name: Autoriser .htaccess dans Apache
       lineinfile:
         path: /etc/apache2/apache2.conf
         regexp: '^<Directory /var/www/>'
@@ -51,36 +52,19 @@
         mode: '0644'
         force: yes
 
-    - name: Créer le dossier temporaire pour l'extraction
+    - name: Créer le dossier temporaire pour extraction
       file:
         path: "{{ itop_extract_dir }}"
         state: directory
         mode: '0755'
 
-    - name: Décompresser iTop dans le dossier temporaire
+    - name: Décompresser iTop
       unarchive:
         src: "{{ itop_zip_path }}"
         dest: "{{ itop_extract_dir }}"
         remote_src: yes
 
-    - name: Trouver le dossier iTop extrait
-      find:
-        paths: "{{ itop_extract_dir }}"
-        file_type: directory
-        patterns: "iTop-*"
-        recurse: false
-      register: itop_folder
-
-    - name: Échouer si le dossier iTop n'a pas été trouvé
-      fail:
-        msg: "Le dossier extrait iTop n'a pas été trouvé. Vérifie le fichier ZIP."
-      when: itop_folder.files | length == 0
-
-    - name: Définir le chemin complet du dossier iTop
-      set_fact:
-        itop_extracted_path: "{{ itop_folder.files[0].path }}"
-
-    - name: Vider le répertoire web existant
+    - name: Supprimer le contenu du répertoire web existant
       file:
         path: "{{ itop_web_dir }}"
         state: absent
@@ -93,10 +77,10 @@
         group: www-data
         mode: '0755'
 
-    - name: Copier les fichiers extraits vers le répertoire web
+    - name: Copier les fichiers vers /var/www/html
       command: rsync -a {{ itop_extracted_path }}/ {{ itop_web_dir }}/
 
-    - name: Créer un fichier .htaccess pour rediriger vers /web
+    - name: Ajouter .htaccess pour redirection vers /web
       copy:
         dest: "{{ itop_web_dir }}/.htaccess"
         content: |
@@ -104,14 +88,14 @@
           RewriteCond %{REQUEST_URI} !^/web/
           RewriteRule ^(.*)$ /web/$1 [L]
 
-    - name: Appliquer les bonnes permissions sur le répertoire web
+    - name: Appliquer permissions sur le répertoire web
       file:
         path: "{{ itop_web_dir }}"
         owner: www-data
         group: www-data
         recurse: yes
 
-    - name: Supprimer le dossier temporaire d'extraction
+    - name: Supprimer le dossier temporaire
       file:
         path: "{{ itop_extract_dir }}"
         state: absent
