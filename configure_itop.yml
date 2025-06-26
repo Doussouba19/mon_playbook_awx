@@ -3,34 +3,61 @@
   hosts: itop
   become: yes
   vars:
-    db_name: "itop_db"
-    db_user: "itop_user"
-    db_password: "itop_password"
-    mysql_root_password: "rootpass"
-    itop_install_dir: "/var/www/html/itop"
-
+    db_name: itop
+    db_user: itopuser
+    db_password: itoppass
+    db_root_user: root
+    db_root_password: rootpassword   
   tasks:
-    - name: Créer la base de données iTop
-      mysql_db:
-        name: "{{ db_name }}"
+    - name: Installer pip3 si absent
+      apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+
+    - name: Installer le module PyMySQL pour Python 3
+      pip:
+        name: pymysql
+        executable: pip3
+
+    - name: Installer le paquet python3-mysqldb (optionnel, parfois utile)
+      apt:
+        name: python3-mysqldb
         state: present
 
+    - name: Créer la base de données iTop
+      community.mysql.mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_password }}"
+
     - name: Créer l'utilisateur MySQL pour iTop
-      mysql_user:
+      community.mysql.mysql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         priv: "{{ db_name }}.*:ALL"
-        host: "localhost"
         state: present
+        login_user: "{{ db_root_user }}"
+        login_password: "{{ db_root_password }}"
 
-    - name: S'assurer que Apache écoute sur le port 80
-      lineinfile:
-        path: /etc/apache2/ports.conf
-        regexp: '^Listen 80'
-        line: 'Listen 80'
-        state: present
+    - name: Redémarrer MySQL pour prendre en compte les changements (si nécessaire)
+      service:
+        name: mysql
+        state: restarted
+      when: false  # mettre à true si besoin
 
-    - name: Redémarrer Apache
+    # Exemple simple de configuration Apache (à adapter)
+    - name: Activer site iTop Apache
+      file:
+        src: /etc/apache2/sites-available/itop.conf
+        dest: /etc/apache2/sites-enabled/itop.conf
+        state: link
+      notify:
+        - Reload Apache
+
+  handlers:
+    - name: Reload Apache
       service:
         name: apache2
-        state: restarted
+        state: reloaded
