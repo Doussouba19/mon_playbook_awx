@@ -5,14 +5,14 @@
 
   vars:
     mysql_root_user: root
-    mysql_root_password: root
+    mysql_root_password: "root"
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
 
   tasks:
 
-    - name: Modifier bind-address pour MySQL
+    - name: Modifier bind-address pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
         regexp: '^bind-address\s*='
@@ -30,12 +30,12 @@
         state: present
         update_cache: yes
 
-    - name: Installer pymysql
+    - name: Installer PyMySQL avec --break-system-packages
       command: python3 -m pip install pymysql --break-system-packages
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
 
-    - name: Autoriser root MySQL à distance
+    - name: Autoriser root à se connecter depuis partout
       community.mysql.mysql_user:
         name: root
         host: "%"
@@ -49,20 +49,20 @@
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
         state: present
-        login_user: root
+        login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer l'utilisateur MySQL iTop
+    - name: Créer l’utilisateur iTop
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
         priv: "{{ itop_db_name }}.*:ALL"
         host: "%"
         state: present
-        login_user: root
+        login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer le fichier silent config XML
+    - name: Créer fichier XML de configuration silencieuse
       copy:
         dest: /var/www/html/web/itop-config-silent.xml
         content: |
