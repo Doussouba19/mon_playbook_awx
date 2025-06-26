@@ -1,45 +1,28 @@
-- name: Configurer iTop (BDD, fichiers config)
+---
+- name: Configurer iTop
   hosts: itop
   become: yes
+
   tasks:
-    - name: Créer BDD
-      mysql_db:
-        name: "{{ db_name }}"
-        state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-    - name: Créer utilisateur MySQL
-      mysql_user:
-        name: "{{ db_user }}"
-        password: "{{ db_password }}"
-        priv: "{{ db_name }}.*:ALL"
-        state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-    - name: Importer dump SQL
-      mysql_db:
-        name: "{{ db_name }}"
-        state: import
-        target: "/tmp/itop_demo.sql"
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-    - name: Copier fichier config-itop.php
+    - name: Créer le fichier de configuration
       copy:
-        dest: "/var/www/html/itop/conf/production/config-itop.php"
+        dest: "{{ itop_install_dir }}/conf/production/config-itop.php"
         content: |
           <?php
           return array(
-            'db_host' => 'localhost',
-            'db_user' => '{{ db_user }}',
-            'db_pwd' => '{{ db_password }}',
-            'db_name' => '{{ db_name }}',
-            'db_driver' => 'mysql',
-            'language' => 'fr_FR',
-            'production_mode' => true,
+              'db_host' => 'localhost',
+              'db_port' => '3306',
+              'db_user' => '{{ db_user }}',
+              'db_pwd' => '{{ db_password }}',
+              'db_name' => '{{ db_name }}',
+              'db_driver' => 'mysql',
+              'language' => 'fr_FR',
+              'production_mode' => true,
           );
         owner: www-data
         group: www-data
         mode: '0640'
+
     - name: Redémarrer Apache
       service:
         name: apache2
