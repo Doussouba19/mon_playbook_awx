@@ -1,50 +1,47 @@
 ---
-- name: Configurer MySQL et installer iTop 3.x en mode silencieux
+- name: Installer iTop en mode silencieux (version 3.x+)
   hosts: itop
   become: yes
 
   vars:
     mysql_root_user: root
-    mysql_root_password: "root"     # Remplacer par ton mot de passe root MySQL
+    mysql_root_password: "root"
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
     itop_install_dir: "/var/www/html/web"
 
   tasks:
-    - name: Modifier bind-address pour autoriser toutes les connexions
+    - name: Modifier bind-address MySQL pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
         regexp: '^bind-address\s*='
         line: 'bind-address = 0.0.0.0'
-      notify: Restart MySQL
 
     - name: Redémarrer MySQL
       service:
         name: mysql
         state: restarted
 
-    - name: Installer python3-full et pip
+    - name: Installer python3-full
       apt:
-        name:
-          - python3-full
-          - python3-pip
+        name: python3-full
         state: present
         update_cache: yes
 
-    - name: Installer PyMySQL via pip
-      pip:
-        name: pymysql
-        executable: pip3
+    - name: Installer PyMySQL
+      command: python3 -m pip install pymysql --break-system-packages
+      args:
+        creates: /usr/local/lib/python3*/dist-packages/pymysql
 
-    - name: Créer base de données iTop
+    - name: Créer la base de données iTop
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer utilisateur iTop et droits
+    - name: Créer l’utilisateur iTop MySQL avec privilèges
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
@@ -54,7 +51,7 @@
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Copier le fichier XML de configuration silencieuse pour iTop 3.x
+    - name: Créer le fichier XML de configuration silencieuse
       copy:
         dest: "{{ itop_install_dir }}/setup/itop-config-silent.xml"
         content: |
@@ -90,7 +87,7 @@
           }
           sort($aSelectedModules);
 
-    - name: Créer dossier datamodels/latest s'il n'existe pas
+    - name: Créer dossier requis pour compilation
       file:
         path: "{{ itop_install_dir }}/datamodels/latest"
         state: directory
@@ -98,7 +95,7 @@
         group: www-data
         mode: '0755'
 
-    - name: Appliquer permissions sur dossier iTop
+    - name: Appliquer permissions sur {{ itop_install_dir }}
       file:
         path: "{{ itop_install_dir }}"
         recurse: yes
@@ -106,7 +103,7 @@
         group: www-data
         mode: '0755'
 
-    - name: Lancer installation silencieuse iTop 3.x via unattended-install.php
+    - name: Lancer l’installation silencieuse iTop
       command: >
         php unattended-install.php --param-file=../itop-config-silent.xml
       args:
