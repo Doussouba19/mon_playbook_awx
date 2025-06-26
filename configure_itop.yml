@@ -1,104 +1,10 @@
----
-- name: Installer iTop (Apache, PHP, MySQL, fichiers)
-  hosts: itop
-  become: yes
-
-  tasks:
-    - name: Mettre à jour la liste des paquets
-      apt:
-        update_cache: yes
-
-    - name: Installer les paquets requis
-      apt:
-        name:
-          - apache2
-          - php
-          - php-mysql
-          - php-xml
-          - unzip
-          - wget
-          - mysql-server
-        state: present
-
-    - name: Activer le module rewrite d'Apache
-      command: a2enmod rewrite
-      notify: Restart Apache
-
-    - name: Ajouter un bloc Directory complet pour /var/www/html dans apache2.conf
-      blockinfile:
-        path: /etc/apache2/apache2.conf
-        block: |
-          <Directory /var/www/html>
-              Options Indexes FollowSymLinks
-              AllowOverride All
-              Require all granted
-          </Directory>
-
-    - name: Télécharger iTop
-      get_url:
-        url: https://www.combodo.com/ftp/itop/2.7.0/iTop-2.7.0-7800.zip
-        dest: /tmp/itop.zip
-
-    - name: Créer le dossier temporaire pour extraction
-      file:
-        path: /tmp/itop
-        state: directory
-
-    - name: Décompresser iTop
-      unarchive:
-        src: /tmp/itop.zip
-        dest: /tmp/itop
-        remote_src: yes
-
-    - name: Supprimer le contenu du répertoire web existant
-      file:
-        path: /var/www/html
-        state: absent
-
-    - name: Recréer le répertoire web
-      file:
-        path: /var/www/html
-        state: directory
-
-    - name: Copier les fichiers iTop vers /var/www/html (racine directe)
-      copy:
-        src: /tmp/itop/web/
-        dest: /var/www/html/
-        remote_src: yes
-
-    - name: Créer un .htaccess pour redirection vers /web
-      copy:
-        dest: /var/www/html/.htaccess
-        content: |
-          RedirectMatch ^/$ /web/
-
-    - name: Appliquer les permissions
-      file:
-        path: /var/www/html
-        state: directory
-        recurse: yes
-        owner: www-data
-        group: www-data
-        mode: "0755"
-
-    - name: Supprimer le dossier temporaire
-      file:
-        path: /tmp/itop
-        state: absent
-
-  handlers:
-    - name: Restart Apache
-      service:
-        name: apache2
-        state: restarted
-
-- name: Installation complète de iTop avec configuration silencieuse
+- name: Installer iTop en mode silencieux
   hosts: itop
   become: yes
 
   vars:
     mysql_root_user: root
-    mysql_root_password: root
+    mysql_root_password: "root"
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
@@ -107,7 +13,7 @@
     - name: Modifier bind-address pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
-        regexp: '^bind-address'
+        regexp: '^bind-address\s*='
         line: 'bind-address = 0.0.0.0'
 
     - name: Redémarrer MySQL
@@ -119,21 +25,12 @@
       apt:
         name: python3-full
         state: present
+        update_cache: yes
 
-    - name: Installer PyMySQL avec --break-system-packages
+    - name: Installer PyMySQL
       command: python3 -m pip install pymysql --break-system-packages
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
-
-    - name: Autoriser root à se connecter depuis partout
-      community.mysql.mysql_user:
-        name: root
-        host: "%"
-        password: "{{ mysql_root_password }}"
-        priv: "*.*:ALL,GRANT"
-        state: present
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
 
     - name: Créer la base de données iTop
       community.mysql.mysql_db:
@@ -169,29 +66,29 @@
             <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
           </itop_install>
 
+    - name: Corriger sort() dans unattended-install.php si nécessaire
+      lineinfile:
+        path: /var/www/html/web/setup/unattended-install/unattended-install.php
+        insertafter: '^\s*sort\(\$aSelectedModules\);'
+        line: |
+          if (!is_array($aSelectedModules)) { $aSelectedModules = explode(',', $aSelectedModules); }
+
+    - name: S'assurer que /var/www/html a les bonnes permissions
+      file:
+        path: /var/www/html
+        recurse: yes
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
     - name: Créer le dossier requis par iTop (si non existant)
       file:
         path: /var/www/html/web/datamodels/latest
         state: directory
-
-    - name: Vérifier et corriger les permissions sur /var/www/html
-      file:
-        path: /var/www/html
-        state: directory
-        recurse: yes
         owner: www-data
         group: www-data
-        mode: "0755"
-
-    - name: Corriger entièrement la ligne sort() dans unattended-install.php
-      replace:
-        path: /var/www/html/web/setup/unattended-install/unattended-install.php
-        regexp: '^\s*sort\(\$aSelectedModules\);'
-        replace: |
-          if (!is_array($aSelectedModules)) {
-              $aSelectedModules = explode(',', $aSelectedModules);
-          }
-          sort($aSelectedModules);
+        mode: '0755'
 
     - name: Lancer l’installation silencieuse de iTop
       command: php unattended-install.php --param-file=itop-config-silent.xml
