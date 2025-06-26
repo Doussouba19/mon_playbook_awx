@@ -1,27 +1,58 @@
 ---
-- name: Configurer et installer iTop en mode silencieux (3.x)
+- name: Configurer iTop (Base de données + installation silencieuse)
   hosts: itop
   become: yes
 
   vars:
     mysql_root_user: root
-    mysql_root_password: root
+    mysql_root_password: "root"
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
-    itop_install_dir: /var/www/html/web
-    itop_config_file: itop-config-silent.xml
 
   tasks:
-    - name: Créer base de données iTop
+    - name: Modifier bind-address pour autoriser toutes les connexions
+      lineinfile:
+        path: /etc/mysql/mysql.conf.d/mysqld.cnf
+        regexp: '^bind-address\s*='
+        line: 'bind-address = 0.0.0.0'
+        backup: yes
+
+    - name: Redémarrer MySQL
+      service:
+        name: mysql
+        state: restarted
+
+    - name: Installer python3-full
+      apt:
+        name: python3-full
+        state: present
+        update_cache: yes
+
+    - name: Installer PyMySQL avec --break-system-packages
+      command: >
+        python3 -m pip install pymysql --break-system-packages
+      args:
+        creates: /usr/local/lib/python3*/dist-packages/pymysql
+
+    - name: Autoriser root à se connecter depuis partout
+      community.mysql.mysql_user:
+        name: root
+        host: "%"
+        password: "{{ mysql_root_password }}"
+        priv: "*.*:ALL,GRANT"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Créer la base de données iTop
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
-      notify: Restart MySQL
 
-    - name: Créer utilisateur MySQL iTop avec droits
+    - name: Créer l’utilisateur iTop
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
@@ -30,61 +61,27 @@
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
-      notify: Restart MySQL
 
-    - name: Créer fichier XML config silencieuse iTop
+    - name: Créer fichier XML de configuration silencieuse
       copy:
-        dest: "{{ itop_install_dir }}/setup/{{ itop_config_file }}"
-        owner: www-data
-        group: www-data
-        mode: '0644'
+        dest: /var/www/html/itop-config-silent.xml
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
           <itop_install>
             <target_env>production</target_env>
+
             <database>
               <server>localhost</server>
               <user>{{ itop_db_user }}</user>
               <pwd>{{ itop_db_password }}</pwd>
               <name>{{ itop_db_name }}</name>
               <prefix>itop_</prefix>
-              <db_tls_enabled>false</db_tls_enabled>
-              <db_tls_ca></db_tls_ca>
             </database>
-            <admin_account>
-              <user>admin</user>
-              <pwd>admin123</pwd>
-              <language>fr</language>
-            </admin_account>
-            <selected_modules>
-              authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt
-            </selected_modules>
+
+            <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
           </itop_install>
 
-    - name: Appliquer permissions dossier iTop web
-      file:
-        path: "{{ itop_install_dir }}"
-        recurse: yes
-        owner: www-data
-        group: www-data
-        mode: '0755'
-
-    - name: Lancer installation silencieuse iTop
-      command: >
-        php unattended-install/unattended-install.php --param-file=setup/{{ itop_config_file }}
+    - name: Lancer l’installation silencieuse de iTop
+      command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
       args:
-        chdir: "{{ itop_install_dir }}"
-      register: install_output
-      failed_when: install_output.rc != 0
-      no_log: false
-
-  handlers:
-    - name: Restart Apache
-      service:
-        name: apache2
-        state: restarted
-
-    - name: Restart MySQL
-      service:
-        name: mysql
-        state: restarted
+        chdir: /var/www/html/web
