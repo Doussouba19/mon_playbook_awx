@@ -71,6 +71,11 @@
         recurse: false
       register: itop_folder
 
+    - name: Échouer si le dossier iTop n'a pas été trouvé
+      fail:
+        msg: "Le dossier extrait iTop n'a pas été trouvé. Vérifie le fichier ZIP."
+      when: itop_folder.files | length == 0
+
     - name: Définir le chemin complet du dossier iTop
       set_fact:
         itop_extracted_path: "{{ itop_folder.files[0].path }}"
@@ -115,6 +120,7 @@
       service:
         name: apache2
         state: restarted
+
   handlers:
     - name: Restart Apache
       service:
