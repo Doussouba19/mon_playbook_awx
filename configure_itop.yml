@@ -34,6 +34,16 @@
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
 
+    - name: Autoriser l'utilisateur root à se connecter depuis n'importe où
+      community.mysql.mysql_user:
+        name: root
+        host: "%"
+        password: "{{ mysql_root_password }}"
+        priv: "*.*:ALL,GRANT"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
     - name: Créer la base de données iTop
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
