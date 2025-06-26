@@ -92,6 +92,11 @@
         owner: www-data
         group: www-data
         mode: '0755'
+        
+    - name: Supprimer le dossier itop_design si inutile
+      file:
+        path: /var/www/html/itop_design
+        state: absent
 
     - name: Lancer l’installation silencieuse de iTop
       command: php unattended-install.php --param-file=itop-config-silent.xml
