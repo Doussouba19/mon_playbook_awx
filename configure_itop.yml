@@ -49,52 +49,6 @@
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Télécharger iTop pour récupérer itop_design
-      get_url:
-        url: https://sourceforge.net/projects/itop/files/latest/download
-        dest: /tmp/itop.zip
-
-    - name: Extraire l’archive iTop
-      unarchive:
-        src: /tmp/itop.zip
-        dest: /tmp/
-        remote_src: yes
-
-    - name: Vérifier si le dossier iTop extrait existe
-      stat:
-        path: /tmp/iTop-*
-      register: itop_extracted
-
-    - name: Échec si aucun dossier iTop extrait trouvé
-      fail:
-        msg: "❌ Aucun dossier /tmp/iTop-* trouvé après extraction."
-      when: not itop_extracted.stat.exists
-
-    - name: Restaurer le dossier itop_design depuis l’archive extraite
-      shell: |
-        cp -r /tmp/iTop-*/itop_design /var/www/html/
-      args:
-        executable: /bin/bash
-
-    - name: Appliquer les permissions sur itop_design
-      file:
-        path: /var/www/html/itop_design
-        state: directory
-        recurse: yes
-        owner: www-data
-        group: www-data
-        mode: '0755'
-
-    - name: Vérifier la présence du fichier user_rights.xml
-      stat:
-        path: /var/www/html/itop_design/user_rights.xml
-      register: user_rights_check
-
-    - name: Échec si le fichier user_rights.xml est absent
-      fail:
-        msg: "❌ Le fichier /itop_design/user_rights.xml est manquant. Impossible de compiler le modèle."
-      when: not user_rights_check.stat.exists
-
     - name: Créer le fichier XML de configuration silencieuse
       copy:
         dest: /var/www/html/web/setup/unattended-install/itop-config-silent.xml
