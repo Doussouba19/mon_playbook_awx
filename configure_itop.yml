@@ -76,27 +76,18 @@
           }
           sort($aSelectedModules);
 
-    - name: S'assurer que /var/www/html a les bonnes permissions
+    - name: Supprimer le dossier itop_design si existant
       file:
-        path: /var/www/html
-        recurse: yes
-        state: directory
-        owner: www-data
-        group: www-data
-        mode: '0755'
+        path: /var/www/html/itop_design
+        state: absent
 
-    - name: Créer le dossier requis par iTop (si non existant)
+    - name: Créer le dossier requis par iTop
       file:
         path: /var/www/html/web/datamodels/latest
         state: directory
         owner: www-data
         group: www-data
         mode: '0755'
-        
-    - name: Supprimer le dossier itop_design si inutile
-      file:
-        path: /var/www/html/itop_design
-        state: absent
 
     - name: Lancer l’installation silencieuse de iTop
       command: php unattended-install.php --param-file=itop-config-silent.xml
