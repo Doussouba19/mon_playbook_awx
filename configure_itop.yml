@@ -5,14 +5,14 @@
 
   vars:
     mysql_root_user: root
-    mysql_root_password: "root"
+    mysql_root_password: root
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
-    itop_web_dir: "/var/www/html"
 
   tasks:
-    - name: Modifier bind-address pour accepter les connexions distantes
+
+    - name: Modifier bind-address pour MySQL
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
         regexp: '^bind-address\s*='
@@ -24,12 +24,18 @@
         name: mysql
         state: restarted
 
-    - name: Installer PyMySQL
+    - name: Installer python3-full
+      apt:
+        name: python3-full
+        state: present
+        update_cache: yes
+
+    - name: Installer pymysql
       command: python3 -m pip install pymysql --break-system-packages
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
 
-    - name: Autoriser root à se connecter depuis n'importe où
+    - name: Autoriser root MySQL à distance
       community.mysql.mysql_user:
         name: root
         host: "%"
@@ -46,7 +52,7 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer l'utilisateur iTop et accorder les droits
+    - name: Créer l'utilisateur MySQL iTop
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
@@ -56,9 +62,9 @@
         login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer le fichier de configuration silent XML
+    - name: Créer le fichier silent config XML
       copy:
-        dest: "{{ itop_web_dir }}/web/itop-config-silent.xml"
+        dest: /var/www/html/web/itop-config-silent.xml
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
           <parameters>
@@ -73,12 +79,7 @@
             <sample_data>yes</sample_data>
           </parameters>
 
-    - name: Lancer l'installation silencieuse de iTop
+    - name: Lancer l'installation silencieuse
       command: php setup.php --production --db-setup --config-file=itop-config-silent.xml
       args:
-        chdir: "{{ itop_web_dir }}/web"
-
-    - name: Redémarrer Apache après installation
-      service:
-        name: apache2
-        state: restarted
+        chdir: /var/www/html/web
