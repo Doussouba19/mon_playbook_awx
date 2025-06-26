@@ -1,6 +1,6 @@
 ---
 - name: Installer iTop (Apache, PHP, MySQL, fichiers)
-  hosts: itop
+  hosts: all
   become: yes
 
   vars:
@@ -25,12 +25,25 @@
           - php-curl
           - php-mbstring
           - php-xml
-          - php-soap      # requis pour iTop
+          - php-soap
           - php-zip
+          - php-apcu        # extension recommandée
+          - php-ldap        # extension optionnelle
           - unzip
           - wget
           - python3-pip
         state: present
+
+    - name: Activer le module rewrite d'Apache
+      command: a2enmod rewrite
+      notify: Restart Apache
+
+    - name: Autoriser l'utilisation des .htaccess dans Apache
+      replace:
+        path: /etc/apache2/apache2.conf
+        regexp: '(<Directory /var/www/>)\s*AllowOverride None'
+        replace: '\1\n\tAllowOverride All'
+      notify: Restart Apache
 
     - name: S'assurer que Apache est démarré et activé
       service:
@@ -91,15 +104,22 @@
         group: www-data
         recurse: yes
 
-    - name: Rediriger automatiquement vers /web depuis la racine
+    - name: Créer un fichier .htaccess pour rediriger vers /web
       copy:
-        dest: "/var/www/html/.htaccess"
-        content: "RedirectMatch ^/$ /web/"
+        dest: /var/www/html/.htaccess
+        content: |
+          RedirectMatch ^/$ /web/
         owner: www-data
         group: www-data
         mode: '0644'
 
     - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
+
+  handlers:
+    - name: Restart Apache
       service:
         name: apache2
         state: restarted
