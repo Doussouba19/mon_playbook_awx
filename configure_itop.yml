@@ -1,63 +1,74 @@
 ---
 - name: Configurer iTop (Base de données + Apache)
-  hosts: itop
+  hosts: all
   become: yes
   vars:
     db_name: itop
-    db_user: itopuser
+    db_user: itop
     db_password: itoppass
-    db_root_user: root
-    db_root_password: rootpassword   
+
   tasks:
     - name: Installer pip3 si absent
       apt:
         name: python3-pip
         state: present
-        update_cache: yes
 
     - name: Installer le module PyMySQL pour Python 3
-      pip:
-        name: pymysql
-        executable: pip3
-
-    - name: Installer le paquet python3-mysqldb (optionnel, parfois utile)
       apt:
-        name: python3-mysqldb
+        name: python3-pymysql
         state: present
 
     - name: Créer la base de données iTop
-      community.mysql.mysql_db:
+      mysql_db:
         name: "{{ db_name }}"
         state: present
-        login_user: "{{ db_root_user }}"
-        login_password: "{{ db_root_password }}"
 
     - name: Créer l'utilisateur MySQL pour iTop
-      community.mysql.mysql_user:
+      mysql_user:
         name: "{{ db_user }}"
         password: "{{ db_password }}"
         priv: "{{ db_name }}.*:ALL"
+        host: localhost
         state: present
-        login_user: "{{ db_root_user }}"
-        login_password: "{{ db_root_password }}"
 
-    - name: Redémarrer MySQL pour prendre en compte les changements (si nécessaire)
-      service:
-        name: mysql
-        state: restarted
-      when: false  # mettre à true si besoin
+    - name: Copier fichier de configuration Apache iTop (directement dans le playbook)
+      copy:
+        dest: /etc/apache2/sites-available/itop.conf
+        owner: root
+        group: root
+        mode: '0644'
+        content: |
+          <VirtualHost *:80>
+              ServerAdmin webmaster@localhost
+              DocumentRoot /var/www/html
 
-    # Exemple simple de configuration Apache (à adapter)
+              <Directory /var/www/html>
+                  Options Indexes FollowSymLinks
+                  AllowOverride All
+                  Require all granted
+              </Directory>
+
+              ErrorLog ${APACHE_LOG_DIR}/itop_error.log
+              CustomLog ${APACHE_LOG_DIR}/itop_access.log combined
+          </VirtualHost>
+
     - name: Activer site iTop Apache
-      file:
-        src: /etc/apache2/sites-available/itop.conf
-        dest: /etc/apache2/sites-enabled/itop.conf
-        state: link
-      notify:
-        - Reload Apache
+      command: a2ensite itop.conf
+      args:
+        creates: /etc/apache2/sites-enabled/itop.conf
 
-  handlers:
-    - name: Reload Apache
+    - name: Activer le module rewrite Apache
+      apache2_module:
+        name: rewrite
+        state: present
+
+    - name: Désactiver le site Apache par défaut
+      command: a2dissite 000-default.conf
+      args:
+        removes: /etc/apache2/sites-enabled/000-default.conf
+      ignore_errors: yes
+
+    - name: Redémarrer Apache pour appliquer les changements
       service:
         name: apache2
-        state: reloaded
+        state: restarted
