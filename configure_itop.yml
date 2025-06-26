@@ -31,7 +31,8 @@
         update_cache: yes
 
     - name: Installer PyMySQL avec --break-system-packages
-      command: python3 -m pip install pymysql --break-system-packages
+      command: >
+        python3 -m pip install pymysql --break-system-packages
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
 
@@ -79,7 +80,7 @@
             <sample_data>yes</sample_data>
           </parameters>
 
-    - name: Lancer l'installation silencieuse
+    - name: Lancer l’installation silencieuse de iTop
       command: php setup.php --production --db-setup --config-file=itop-config-silent.xml
       args:
         chdir: /var/www/html/web
