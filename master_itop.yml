@@ -1,8 +1,8 @@
 ---
 - import_playbook: install_itop.yml
   vars:
-    itop_version: "3.2.1"
-    itop_url: "https://sourceforge.net/projects/itop/files/iTop%20Stable%20Releases/3.2.1/iTop-3.2.1.zip/download"
+    itop_version: "3.1.1"
+    itop_url: "https://sourceforge.net/projects/itop/files/iTop%20Stable%20Releases/3.1.1/iTop-3.1.1.zip/download"
     itop_install_dir: "/var/www/html/itop"
     itop_sql_dump_url: "https://raw.githubusercontent.com/Combodo/iTop/master/datamodel/demo/demo-itop-data.sql"
     db_name: "itop_db"
