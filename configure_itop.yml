@@ -81,6 +81,6 @@
           </parameters>
 
     - name: Lancer l’installation silencieuse de iTop
-      command: php setup/unattended-install/unattended-install.php --config_file=../itop-config-silent.xml
+      command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
       args:
         chdir: /var/www/html/web
