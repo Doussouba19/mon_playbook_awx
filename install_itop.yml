@@ -5,10 +5,9 @@
 
   vars:
     itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
-    itop_zip_path: "/tmp/iTop-3.2.1.zip"
-    itop_extract_dir: "/tmp/itop_extract"
-    itop_extracted_path: "/tmp/itop_extract/iTop-3.2.1-1-16749"
+    itop_zip_path: "/tmp/iTop.zip"
     itop_web_dir: "/var/www/html"
+    itop_extract_dir: "/tmp/itop_extract"
 
   tasks:
     - name: Mettre à jour la liste des paquets
@@ -30,14 +29,13 @@
           - unzip
           - wget
           - python3-pip
-          - python3-full
         state: present
 
     - name: Activer le module rewrite d'Apache
       command: a2enmod rewrite
       notify: Restart Apache
 
-    - name: Autoriser .htaccess dans Apache
+    - name: Autoriser les .htaccess dans Apache
       lineinfile:
         path: /etc/apache2/apache2.conf
         regexp: '^<Directory /var/www/>'
@@ -78,9 +76,9 @@
         mode: '0755'
 
     - name: Copier les fichiers vers /var/www/html
-      command: rsync -a {{ itop_extracted_path }}/ {{ itop_web_dir }}/
+      command: rsync -a {{ itop_extract_dir }}/ {{ itop_web_dir }}/
 
-    - name: Ajouter .htaccess pour redirection vers /web
+    - name: Créer un .htaccess pour redirection vers /web
       copy:
         dest: "{{ itop_web_dir }}/.htaccess"
         content: |
@@ -88,7 +86,7 @@
           RewriteCond %{REQUEST_URI} !^/web/
           RewriteRule ^(.*)$ /web/$1 [L]
 
-    - name: Appliquer permissions sur le répertoire web
+    - name: Appliquer les permissions
       file:
         path: "{{ itop_web_dir }}"
         owner: www-data
