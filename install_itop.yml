@@ -1,0 +1,34 @@
+- name: Installer iTop (Apache, PHP, MySQL, fichiers)
+  hosts: itop
+  become: yes
+  tasks:
+    - name: Installer paquets requis
+      apt:
+        name:
+          - apache2
+          - php
+          - php-mysql
+          - mysql-server
+          - unzip
+          - wget
+        state: present
+        update_cache: yes
+    - name: Démarrer Apache
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+    - name: Démarrer MySQL
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+    - name: Télécharger iTop
+      get_url:
+        url: "{{ itop_url }}"
+        dest: "/tmp/iTop.zip"
+    - name: Extraire iTop
+      unarchive:
+        src: "/tmp/iTop.zip"
+        dest: "/var/www/html/"
+        remote_src: yes
