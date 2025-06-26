@@ -1,0 +1,139 @@
+---
+- name: Installation complète et configuration avancée d'iTop
+  hosts: itop
+  become: yes
+  vars:
+    itop_version: "3.2.1"
+    itop_url: "https://sourceforge.net/projects/itop/files/iTop%20Stable%20Releases/{{ itop_version }}/iTop-{{ itop_version }}.zip/download"
+    itop_install_dir: "/var/www/html/itop"
+    db_name: "itop_db"
+    db_user: "itop_user"
+    db_password: "itop_password"
+    mysql_root_password: "rootpass"
+    itop_sql_dump_url: "https://raw.githubusercontent.com/Combodo/iTop/master/datamodel/demo/demo-itop-data.sql"
+
+  tasks:
+
+    - name: Installer Apache, PHP et modules requis
+      apt:
+        name:
+          - apache2
+          - php
+          - php-mysql
+          - php-xml
+          - php-curl
+          - php-mbstring
+          - php-gd
+          - unzip
+          - wget
+          - mysql-client
+          - mysql-server
+        state: present
+        update_cache: yes
+
+    - name: Assurer que le service Apache est démarré et activé
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Télécharger l'archive iTop
+      get_url:
+        url: "{{ itop_url }}"
+        dest: "/tmp/iTop-{{ itop_version }}.zip"
+        mode: '0644'
+
+    - name: Décompresser iTop dans le répertoire web
+      unarchive:
+        src: "/tmp/iTop-{{ itop_version }}.zip"
+        dest: "/var/www/html/"
+        remote_src: yes
+        creates: "{{ itop_install_dir }}"
+
+    - name: Renommer dossier extrait en itop
+      command: mv "/var/www/html/iTop-{{ itop_version }}" "{{ itop_install_dir }}"
+      args:
+        removes: "/var/www/html/iTop-{{ itop_version }}"
+        creates: "{{ itop_install_dir }}"
+
+    - name: Assurer les permissions correctes sur le dossier iTop
+      file:
+        path: "{{ itop_install_dir }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: S'assurer que MySQL est démarré et activé
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Configurer le mot de passe root MySQL (si nécessaire)
+      mysql_user:
+        name: root
+        host_all: yes
+        password: "{{ mysql_root_password }}"
+        check_implicit_admin: yes
+      ignore_errors: yes
+
+    - name: Créer la base de données pour iTop
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Créer l'utilisateur MySQL pour iTop
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Télécharger le dump SQL de démo iTop
+      get_url:
+        url: "{{ itop_sql_dump_url }}"
+        dest: "/tmp/itop_demo.sql"
+        mode: '0644'
+
+    - name: Importer la base de données iTop (dump)
+      mysql_db:
+        name: "{{ db_name }}"
+        state: import
+        target: "/tmp/itop_demo.sql"
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Créer le fichier de configuration iTop (config-itop.php)
+      copy:
+        dest: "{{ itop_install_dir }}/conf/production/config-itop.php"
+        content: |
+          <?php
+          return array(
+              'db_host' => 'localhost',
+              'db_port' => '3306',
+              'db_user' => '{{ db_user }}',
+              'db_pwd' => '{{ db_password }}',
+              'db_name' => '{{ db_name }}',
+              'db_driver' => 'mysql',
+              'language' => 'fr_FR',
+              'production_mode' => true,
+          );
+        owner: www-data
+        group: www-data
+        mode: '0640'
+
+    - name: S'assurer que les permissions sont correctes sur le dossier iTop
+      file:
+        path: "{{ itop_install_dir }}"
+        owner: www-data
+        group: www-data
+        recurse: yes
+
+    - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
