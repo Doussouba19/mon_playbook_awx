@@ -4,11 +4,13 @@
   become: yes
 
   vars:
-    itop_download_url: "https://sourceforge.net/projects/itop/files/latest/download"
+    itop_version: "3.0.6"
+    itop_url: "https://sourceforge.net/projects/itop/files/iTop-{{ itop_version }}/itop-{{ itop_version }}.zip/download"
+    itop_zip: "/tmp/itop.zip"
     itop_install_dir: "/var/www/html/web"
 
   tasks:
-    - name: Installer les paquets requis (Apache, PHP, unzip, wget)
+    - name: Installer paquets requis (Apache, PHP, unzip, wget)
       apt:
         name:
           - apache2
@@ -17,11 +19,6 @@
           - php-xml
           - php-mbstring
           - php-curl
-          - php-zip
-          - php-gd
-          - php-intl
-          - php-bcmath
-          - php-cli
           - unzip
           - wget
         state: present
@@ -31,15 +28,14 @@
       apache2_module:
         name: rewrite
         state: present
-      notify: Restart Apache
 
     - name: Télécharger iTop archive zip dans /tmp
       get_url:
-        url: "{{ itop_download_url }}"
-        dest: /tmp/itop.zip
+        url: "{{ itop_url }}"
+        dest: "{{ itop_zip }}"
         mode: '0644'
 
-    - name: Supprimer l'ancien dossier iTop si existe
+    - name: Supprimer l'ancien dossier iTop s'il existe
       file:
         path: "{{ itop_install_dir }}"
         state: absent
@@ -52,16 +48,24 @@
         group: www-data
         mode: '0755'
 
-    - name: Décompresser iTop dans le dossier web
+    - name: Décompresser iTop dans un dossier temporaire
       unarchive:
-        src: /tmp/itop.zip
-        dest: "{{ itop_install_dir }}"
+        src: "{{ itop_zip }}"
+        dest: /tmp/itop
         remote_src: yes
-        extra_opts: [--strip-components=1]
         owner: www-data
         group: www-data
+        mode: '0755'
 
-    - name: Appliquer permissions sur dossier iTop
+    - name: Copier les fichiers extraits dans le dossier d'installation
+      command: rsync -a /tmp/itop/ "{{ itop_install_dir }}/"
+
+    - name: Supprimer le dossier temporaire
+      file:
+        path: /tmp/itop
+        state: absent
+
+    - name: Appliquer les permissions sur /var/www/html/web
       file:
         path: "{{ itop_install_dir }}"
         recurse: yes
@@ -69,8 +73,7 @@
         group: www-data
         mode: '0755'
 
-  handlers:
-    - name: Restart Apache
+    - name: Redémarrer Apache
       service:
         name: apache2
         state: restarted
