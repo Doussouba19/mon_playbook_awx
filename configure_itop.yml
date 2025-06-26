@@ -8,10 +8,8 @@
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
-  tasks:
-    - name: Gather facts
-      ansible.builtin.setup:
 
+  tasks:
     - name: Modifier bind-address pour autoriser toutes les connexions
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
@@ -24,15 +22,17 @@
         name: mysql
         state: restarted
 
-    - name: Installer pip3 si absent
+    - name: S'assurer que python3-full est installé
       apt:
-        name: python3-pip
+        name: python3-full
         state: present
         update_cache: yes
 
-    - name: Installer le module PyMySQL pour Python 3
-      pip:
-        name: pymysql
+    - name: Installer PyMySQL en autorisant --break-system-packages
+      command: >
+        python3 -m pip install pymysql --break-system-packages
+      args:
+        creates: /usr/local/lib/python3*/dist-packages/pymysql
 
     - name: Créer la base de données iTop
       community.mysql.mysql_db:
@@ -47,14 +47,6 @@
         password: "{{ itop_db_password }}"
         priv: "{{ itop_db_name }}.*:ALL"
         host: "%"
-        state: present
-        login_user: "{{ mysql_root_user }}"
-        login_password: "{{ mysql_root_password }}"
-
-    - name: Appliquer flush privileges MySQL
-      community.mysql.mysql_user:
-        name: "{{ itop_db_user }}"
-        check_implicit_admin: yes
         state: present
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
