@@ -63,6 +63,11 @@
               <name>{{ itop_db_name }}</name>
               <prefix>itop_</prefix>
             </database>
+            <admin_account>
+              <user>admin</user>
+              <pwd>admin123</pwd>
+              <language>fr</language>
+            </admin_account>
             <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
           </itop_install>
 
@@ -76,7 +81,7 @@
           }
           sort($aSelectedModules);
 
-    - name: Supprimer le dossier itop_design si existant
+    - name: Supprimer le dossier itop_design s'il existe (problème compilation modèle)
       file:
         path: /var/www/html/itop_design
         state: absent
@@ -84,6 +89,15 @@
     - name: Créer le dossier requis par iTop
       file:
         path: /var/www/html/web/datamodels/latest
+        state: directory
+        owner: www-data
+        group: www-data
+        mode: '0755'
+
+    - name: Vérifier les permissions de /var/www/html
+      file:
+        path: /var/www/html
+        recurse: yes
         state: directory
         owner: www-data
         group: www-data
