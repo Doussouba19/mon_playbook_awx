@@ -36,13 +36,17 @@
       command: a2enmod rewrite
       notify: Restart Apache
 
-    - name: Autoriser les .htaccess dans Apache
-      lineinfile:
+    - name: Ajouter un bloc Directory complet pour /var/www/html dans apache2.conf
+      blockinfile:
         path: /etc/apache2/apache2.conf
-        regexp: '^<Directory /var/www/>'
-        insertafter: '^<Directory /var/www/>'
-        line: '    AllowOverride All'
-        state: present
+        marker: "# {mark} ANSIBLE ITOP CONFIG"
+        insertafter: EOF
+        block: |
+          <Directory /var/www/html>
+              Options Indexes FollowSymLinks
+              AllowOverride All
+              Require all granted
+          </Directory>
 
     - name: Télécharger iTop
       get_url:
@@ -78,7 +82,7 @@
 
     - name: Copier les fichiers iTop vers /var/www/html (avec web/)
       copy:
-        src: "{{ itop_extract_dir }}/"
+        src: "{{ itop_extract_dir }}/iTop-3.2.1-1-16749/"
         dest: "{{ itop_web_dir }}/"
         remote_src: yes
         owner: www-data
