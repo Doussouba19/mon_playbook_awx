@@ -1,0 +1,42 @@
+---
+- name: Installer Prometheus et Grafana sur l’hôte Grafana
+  hosts: grafana
+  become: yes
+  tasks:
+    - name: Mettre à jour les paquets
+      apt:
+        update_cache: yes
+
+    - name: Installer Prometheus
+      apt:
+        name: prometheus
+        state: present
+
+    - name: Vérifier que Prometheus tourne
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
+    - name: Ajouter la clé GPG de Grafana
+      apt_key:
+        url: https://packages.grafana.com/gpg.key
+        state: present
+
+    - name: Ajouter le dépôt Grafana APT
+      apt_repository:
+        repo: "deb https://packages.grafana.com/oss/deb stable main"
+        state: present
+        filename: grafana
+
+    - name: Installer Grafana
+      apt:
+        name: grafana
+        state: present
+        update_cache: yes
+
+    - name: Démarrer Grafana
+      systemd:
+        name: grafana-server
+        enabled: yes
+        state: started
