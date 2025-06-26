@@ -1,5 +1,5 @@
 ---
-- name: Configurer iTop (Base de données + Apache)
+- name: Configurer iTop (Base de données + installation silencieuse)
   hosts: itop
   become: yes
 
@@ -9,34 +9,27 @@
     itop_db_name: itop
     itop_db_user: itopuser
     itop_db_password: itoppass
+    itop_web_dir: "/var/www/html"
 
   tasks:
-
-    - name: Modifier bind-address pour autoriser toutes les connexions
+    - name: Modifier bind-address pour accepter les connexions distantes
       lineinfile:
         path: /etc/mysql/mysql.conf.d/mysqld.cnf
         regexp: '^bind-address\s*='
         line: 'bind-address = 0.0.0.0'
         backup: yes
 
-    - name: Redémarrer MySQL pour appliquer la modification bind-address
+    - name: Redémarrer MySQL
       service:
         name: mysql
         state: restarted
 
-    - name: S'assurer que python3-full est installé
-      apt:
-        name: python3-full
-        state: present
-        update_cache: yes
-
-    - name: Installer PyMySQL en autorisant --break-system-packages
-      command: >
-        python3 -m pip install pymysql --break-system-packages
+    - name: Installer PyMySQL
+      command: python3 -m pip install pymysql --break-system-packages
       args:
         creates: /usr/local/lib/python3*/dist-packages/pymysql
 
-    - name: Autoriser l'utilisateur root à se connecter depuis n'importe où
+    - name: Autoriser root à se connecter depuis n'importe où
       community.mysql.mysql_user:
         name: root
         host: "%"
@@ -50,22 +43,22 @@
       community.mysql.mysql_db:
         name: "{{ itop_db_name }}"
         state: present
-        login_user: "{{ mysql_root_user }}"
+        login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer l'utilisateur MySQL pour iTop et accorder les droits
+    - name: Créer l'utilisateur iTop et accorder les droits
       community.mysql.mysql_user:
         name: "{{ itop_db_user }}"
         password: "{{ itop_db_password }}"
         priv: "{{ itop_db_name }}.*:ALL"
         host: "%"
         state: present
-        login_user: "{{ mysql_root_user }}"
+        login_user: root
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer le fichier de configuration silent pour iTop (datamodel et DB info)
+    - name: Créer le fichier de configuration silent XML
       copy:
-        dest: /var/www/html/web/itop-config-silent.xml
+        dest: "{{ itop_web_dir }}/web/itop-config-silent.xml"
         content: |
           <?xml version="1.0" encoding="UTF-8"?>
           <parameters>
@@ -83,4 +76,9 @@
     - name: Lancer l'installation silencieuse de iTop
       command: php setup.php --production --db-setup --config-file=itop-config-silent.xml
       args:
-        chdir: /var/www/html/web
+        chdir: "{{ itop_web_dir }}/web"
+
+    - name: Redémarrer Apache après installation
+      service:
+        name: apache2
+        state: restarted
