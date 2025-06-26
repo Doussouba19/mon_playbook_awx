@@ -78,7 +78,14 @@
               <prefix>itop_</prefix>
             </database>
 
-            <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
+            <selected_modules>
+              <module>authent-local</module>
+              <module>itop-config-mgmt</module>
+              <module>itop-tickets</module>
+              <module>itop-incident-mgmt</module>
+              <module>itop-request-mgmt</module>
+              <module>itop-change-mgmt</module>
+            </selected_modules>
           </itop_install>
 
     - name: Lancer l’installation silencieuse de iTop
