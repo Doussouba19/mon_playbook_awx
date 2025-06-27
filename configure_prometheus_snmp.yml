@@ -4,6 +4,10 @@
   become: yes
   vars:
     prometheus_config_path: /etc/prometheus/prometheus.yml
+    snmp_targets:
+      - 10.0.57.34:161
+      - 10.0.57.35:161
+      - 10.0.57.36:161
 
   tasks:
     - name: Sauvegarder l’ancien prometheus.yml
@@ -23,7 +27,7 @@
           scrape_configs:
             - job_name: 'snmp_if_mib'
               static_configs:
-                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+                - targets: {{ snmp_targets }}
               metrics_path: /snmp
               params:
                 module: [if_mib]
@@ -37,7 +41,7 @@
 
             - job_name: 'snmp_system'
               static_configs:
-                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+                - targets: {{ snmp_targets }}
               metrics_path: /snmp
               params:
                 module: [system]
@@ -51,7 +55,7 @@
 
             - job_name: 'snmp_ucd'
               static_configs:
-                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+                - targets: {{ snmp_targets }}
               metrics_path: /snmp
               params:
                 module: [ucd]
@@ -65,7 +69,7 @@
 
             - job_name: 'snmp_host'
               static_configs:
-                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+                - targets: {{ snmp_targets }}
               metrics_path: /snmp
               params:
                 module: [host]
@@ -79,7 +83,7 @@
 
             - job_name: 'snmp_netstat'
               static_configs:
-                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+                - targets: {{ snmp_targets }}
               metrics_path: /snmp
               params:
                 module: [netstat]
