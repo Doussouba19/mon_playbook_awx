@@ -13,7 +13,7 @@
         remote_src: yes
         mode: '0644'
 
-    - name: Écrire le nouveau fichier de configuration Prometheus
+    - name: Écrire le nouveau fichier de configuration Prometheus avec plusieurs modules SNMP
       copy:
         dest: "{{ prometheus_config_path }}"
         content: |
@@ -21,13 +21,68 @@
             scrape_interval: 15s
 
           scrape_configs:
-            - job_name: 'snmp'
+            - job_name: 'snmp_if_mib'
               static_configs:
                 - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
               metrics_path: /snmp
               params:
                 module: [if_mib]
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: __param_target
+                - source_labels: [__param_target]
+                  target_label: instance
+                - target_label: __address__
+                  replacement: localhost:9116
 
+            - job_name: 'snmp_system'
+              static_configs:
+                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+              metrics_path: /snmp
+              params:
+                module: [system]
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: __param_target
+                - source_labels: [__param_target]
+                  target_label: instance
+                - target_label: __address__
+                  replacement: localhost:9116
+
+            - job_name: 'snmp_ucd'
+              static_configs:
+                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+              metrics_path: /snmp
+              params:
+                module: [ucd]
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: __param_target
+                - source_labels: [__param_target]
+                  target_label: instance
+                - target_label: __address__
+                  replacement: localhost:9116
+
+            - job_name: 'snmp_host'
+              static_configs:
+                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+              metrics_path: /snmp
+              params:
+                module: [host]
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: __param_target
+                - source_labels: [__param_target]
+                  target_label: instance
+                - target_label: __address__
+                  replacement: localhost:9116
+
+            - job_name: 'snmp_netstat'
+              static_configs:
+                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
+              metrics_path: /snmp
+              params:
+                module: [netstat]
               relabel_configs:
                 - source_labels: [__address__]
                   target_label: __param_target
