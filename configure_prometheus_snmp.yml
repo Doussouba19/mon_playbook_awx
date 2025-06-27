@@ -4,10 +4,6 @@
   become: yes
   vars:
     prometheus_config_path: "/etc/prometheus/prometheus.yml"
-    snmp_targets:
-      - "10.0.57.34:9116"
-      - "10.0.57.35:9116"
-      - "10.0.57.36:9116"
 
   tasks:
     - name: Sauvegarder l'ancien fichier prometheus.yml
@@ -16,6 +12,13 @@
         dest: "{{ prometheus_config_path }}.backup"
         remote_src: yes
         backup: yes
+      ignore_errors: yes
+
+    - name: Supprimer les anciennes configurations snmp déjà présentes
+      replace:
+        path: "{{ prometheus_config_path }}"
+        regexp: '^\s*-\s*job_name:\s*[''"]?snmp[''"]?.*?static_configs:.*?(\n\s*-\s*targets:.*?(\n\s*-\s*.*?)*\n)+'
+        replace: ''
       ignore_errors: yes
 
     - name: Ajouter la configuration SNMP Exporter au fichier prometheus.yml
@@ -29,9 +32,9 @@
               module: [if_mib]
             static_configs:
               - targets:
-{% for target in snmp_targets %}
-                  - {{ target }}
-{% endfor %}
+                  - "10.0.57.34:9116"
+                  - "10.0.57.35:9116"
+                  - "10.0.57.36:9116"
 
     - name: Redémarrer Prometheus pour appliquer la nouvelle configuration
       systemd:
