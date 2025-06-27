@@ -1,0 +1,35 @@
+---
+- name: Déployer le snmp.yml généré (modules: host, system, if_mib, ucd, netstat)
+  hosts:
+    - grafana
+    - itop
+    - semaphore
+  become: true
+  vars:
+    snmp_exporter_config_path: "/etc/snmp_exporter"
+    local_snmp_yml: "./snmp.yml"  # Ce fichier doit être localement accessible
+    remote_snmp_yml: "/etc/snmp_exporter/snmp.yml"
+
+  tasks:
+    - name: Créer le dossier SNMP Exporter s’il n’existe pas
+      file:
+        path: "{{ snmp_exporter_config_path }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copier le nouveau snmp.yml vers les serveurs distants
+      copy:
+        src: "{{ local_snmp_yml }}"
+        dest: "{{ remote_snmp_yml }}"
+        owner: root
+        group: root
+        mode: '0644'
+        backup: yes
+
+    - name: Redémarrer snmp_exporter pour recharger la configuration
+      systemd:
+        name: snmp_exporter
+        state: restarted
+        enabled: true
