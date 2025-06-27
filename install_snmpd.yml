@@ -40,10 +40,10 @@
         enabled: yes
 
     - name: Vérifier que snmpd écoute bien sur le port 161
-      command: ss -tunlp | grep :161
+      shell: ss -tunlp | grep ":161"
       register: snmpd_port_check
-      changed_when: false
       failed_when: snmpd_port_check.rc != 0
+      changed_when: false
 
     - name: Afficher la sortie de la commande ss
       debug:
