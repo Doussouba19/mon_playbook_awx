@@ -1,4 +1,5 @@
 ---
 - import_playbook: deploy_snmp_exporter.yml
 - import_playbook: install_snmpd.yml
+- import_playbook: deploy_snmp_config.yml   
 - import_playbook: configure_prometheus_snmp.yml
