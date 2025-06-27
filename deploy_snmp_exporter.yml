@@ -1,12 +1,12 @@
 ---
-- name: Installer et configurer SNMP Exporter sur tous les serveurs
+- name: Installer et configurer SNMP Exporter en version 0.22.0
   hosts:
     - grafana
     - itop
     - semaphore
   become: yes
   vars:
-    snmp_exporter_version: "0.21.0"
+    snmp_exporter_version: "0.22.0"
     snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
     snmp_exporter_install_dir: "/usr/local/snmp_exporter"
     snmp_exporter_user: "snmp_exporter"
@@ -52,7 +52,7 @@
         group: "{{ snmp_exporter_user }}"
         mode: '0755'
 
-    - name: Copier la configuration snmp.yml (valide)
+    - name: Copier la configuration snmp.yml (valide YAML)
       copy:
         content: |
           modules:
@@ -67,7 +67,6 @@
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
-      notify: Restart snmp_exporter
 
     - name: Créer un service systemd pour snmp_exporter
       copy:
@@ -87,20 +86,12 @@
           [Install]
           WantedBy=multi-user.target
         mode: '0644'
-      notify: Reload systemd daemon
 
-  handlers:
-    - name: Reload systemd daemon
+    - name: Recharger les unités systemd
       systemd:
         daemon_reload: yes
 
-    - name: Restart snmp_exporter
-      systemd:
-        name: snmp_exporter
-        state: restarted
-        enabled: yes
-
-    - name: Start snmp_exporter
+    - name: Activer et démarrer le service SNMP Exporter
       systemd:
         name: snmp_exporter
         state: started
