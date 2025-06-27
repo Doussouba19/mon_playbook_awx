@@ -1,30 +1,25 @@
 ---
-- name: Déployer la clé publique SSH pour ansible-admin et automation-admin
+- name: Déployer la clé publique SSH pour automation-admin uniquement sur grafana et itop
   hosts:
     - grafana
     - itop
-    - semaphore
   become: yes
 
   vars:
     ssh_pub_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDUzFPWH64lA9ZqnPRDIlYYPgfDqjfVvBuZ/GCM2a7czn981gffZg7QR5CzVWPCweRxUalEWGvsprcbIBT0JZHr0oV+lWEDWVBUDhjdNY96PXXql24fYxF4dCWp1KICBkihLtKRSHgMw4udRTZISjogrSWZjcqGbOPqgIHkBRhvB/B+HemQt4XlnnzuiTmU078qsZDgNDLDawS+92HRa3hHCOI2C9SLBHfD9BodTZxFp5idDJKQxzcby/PLAuyZ1+ExPP0+G7I0lIhADLcDFictFDPuo4xgNX0hOqYaR7K1uCTJ+LGaFHHCkYMoUFzAwrH92/yObleou3o5dXn07p8nqeD3WdcuAMwgz1wShxzeYPdW89AJkbau6CS0q418EechmtAVbV7Yq+6994PNnoMKkY3dmXY7TV+jsEbTfMQgLwUjC171AjPA7I+FhZu0Sjdo+fwLBQbtU5kxyLoY6bk2hrQqpIDm5pLm2eHIG2BhbBGiyj/p0C9V0V1yf6zf7neJlMVtYpLMndwt9zwD/FNuHm3LHr6FzXY0qFx5DedzxnhrEJ4P659n6NpTqW1S3qQlXi9UbIz4aZRgqcTpVy9R73paCYu2vKh4fPR/EaDVGNTed3YwbfXYCbR5zq/F/yTHc4HXUcBrLg+S+5Fd1ARFw0y2N+gWJaJbd3JpWN2Huw== awx@tonemail.com"
 
   tasks:
-    - name: Déterminer l'utilisateur distant selon le groupe
-      set_fact:
-        remote_user: "{{ 'automation-admin' if (inventory_hostname in groups['grafana'] or inventory_hostname in groups['itop']) else 'ansible-admin' }}"
-
-    - name: Créer le dossier .ssh pour l'utilisateur distant
+    - name: Créer le dossier .ssh pour automation-admin
       file:
-        path: "/home/{{ remote_user }}/.ssh"
+        path: "/home/automation-admin/.ssh"
         state: directory
         mode: "0700"
-        owner: "{{ remote_user }}"
-        group: "{{ remote_user }}"
+        owner: "automation-admin"
+        group: "automation-admin"
 
-    - name: Ajouter la clé publique dans authorized_keys
+    - name: Ajouter la clé publique dans authorized_keys pour automation-admin
       authorized_key:
-        user: "{{ remote_user }}"
+        user: "automation-admin"
         key: "{{ ssh_pub_key }}"
         state: present
         manage_dir: no
