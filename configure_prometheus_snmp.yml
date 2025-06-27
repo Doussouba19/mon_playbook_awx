@@ -46,25 +46,22 @@
         state: absent
         marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
 
-    
-- name: Ajouter la configuration SNMP Exporter propre
-  when: inventory_hostname in groups['grafana']
-  blockinfile:
-    path: "{{ prometheus_config_path }}"
-    marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
-    insertafter: '^scrape_configs:'
-    block: |
-      - job_name: 'snmp'
-        metrics_path: /snmp
-        params:
-          module: [if_mib]
-        static_configs:
-          - targets:
-              - "10.0.57.34:9116"
-              - "10.0.57.35:9116"
-              - "10.0.57.36:9116"
-
-
+    - name: Ajouter la configuration SNMP Exporter propre
+      when: inventory_hostname in groups['grafana']
+      blockinfile:
+        path: "{{ prometheus_config_path }}"
+        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
+        insertafter: '^scrape_configs:'
+        block: |
+          - job_name: 'snmp'
+            metrics_path: /snmp
+            params:
+              module: [if_mib]
+            static_configs:
+              - targets:
+                  - "10.0.57.34:9116"
+                  - "10.0.57.35:9116"
+                  - "10.0.57.36:9116"
 
     - name: Installer yamllint si non installé
       when: inventory_hostname in groups['grafana']
