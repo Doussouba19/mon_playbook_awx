@@ -1,12 +1,12 @@
 ---
-- name: Installer et configurer SNMP Exporter en version 0.22.0
+- name: Installer et configurer SNMP Exporter en version 0.21.0
   hosts:
     - grafana
     - itop
     - semaphore
   become: yes
   vars:
-    snmp_exporter_version: "0.22.0"
+    snmp_exporter_version: "0.21.0"
     snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
     snmp_exporter_install_dir: "/usr/local/snmp_exporter"
     snmp_exporter_user: "snmp_exporter"
@@ -20,7 +20,7 @@
         create_home: no
 
     - name: Créer le dossier d'installation
-      ansible.builtin.file:
+      file:
         path: "{{ snmp_exporter_install_dir }}"
         state: directory
         owner: "{{ snmp_exporter_user }}"
@@ -28,28 +28,33 @@
         mode: "0755"
 
     - name: Télécharger SNMP Exporter archive
-      ansible.builtin.get_url:
+      get_url:
         url: "{{ snmp_exporter_url }}"
         dest: "/tmp/snmp_exporter.tar.gz"
         mode: '0644'
+      register: download_snmp_exporter
+      until: download_snmp_exporter is succeeded
+      retries: 3
+      delay: 10
 
     - name: Extraire SNMP Exporter archive
-      ansible.builtin.unarchive:
+      unarchive:
         src: "/tmp/snmp_exporter.tar.gz"
         dest: "/tmp/"
         remote_src: yes
+        creates: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
 
     - name: Copier le binaire snmp_exporter depuis l'hôte distant
-      ansible.builtin.copy:
-        remote_src: yes
+      copy:
         src: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
         dest: "{{ snmp_exporter_install_dir }}/snmp_exporter"
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0755'
+        remote_src: yes
 
-    - name: Copier la configuration snmp.yml (valide pour if_mib)
-      ansible.builtin.copy:
+    - name: Copier la configuration snmp.yml
+      copy:
         content: |
           modules:
             if_mib:
@@ -64,8 +69,8 @@
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
 
-    - name: Créer le service systemd snmp_exporter
-      ansible.builtin.copy:
+    - name: Créer le service systemd pour snmp_exporter
+      copy:
         dest: /etc/systemd/system/snmp_exporter.service
         content: |
           [Unit]
@@ -84,11 +89,11 @@
         mode: '0644'
 
     - name: Recharger systemd
-      ansible.builtin.systemd:
+      systemd:
         daemon_reload: yes
 
     - name: Activer et démarrer le service snmp_exporter
-      ansible.builtin.systemd:
+      systemd:
         name: snmp_exporter
         state: started
         enabled: yes
