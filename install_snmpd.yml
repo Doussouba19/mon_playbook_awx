@@ -1,0 +1,50 @@
+---
+- name: Installer et configurer snmpd sur les agents SNMP
+  hosts:
+    - grafana
+    - itop
+    - semaphore
+  become: yes
+
+  tasks:
+    - name: Installer le paquet snmpd
+      apt:
+        name: snmpd
+        state: present
+        update_cache: yes
+
+    - name: Sauvegarder l’ancien fichier de configuration snmpd.conf s’il existe
+      copy:
+        src: /etc/snmp/snmpd.conf
+        dest: /etc/snmp/snmpd.conf.bak
+        remote_src: yes
+        mode: '0644'
+      ignore_errors: yes
+
+    - name: Écraser la configuration de snmpd
+      copy:
+        dest: /etc/snmp/snmpd.conf
+        content: |
+          agentAddress udp:161
+          rocommunity public
+          sysLocation "Monitoring Server"
+          sysContact admin@example.com
+        owner: root
+        group: root
+        mode: '0644'
+
+    - name: Redémarrer snmpd
+      systemd:
+        name: snmpd
+        state: restarted
+        enabled: yes
+
+    - name: Vérifier que snmpd écoute bien sur le port 161
+      command: ss -tunlp | grep :161
+      register: snmpd_port_check
+      changed_when: false
+      failed_when: snmpd_port_check.rc != 0
+
+    - name: Afficher la sortie de la commande ss
+      debug:
+        var: snmpd_port_check.stdout
