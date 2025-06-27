@@ -1,11 +1,10 @@
 ---
-- name: Déployer SNMP Exporter sur tous les serveurs
+- name: Installer et configurer SNMP Exporter sur tous les serveurs
   hosts:
     - grafana
     - itop
     - semaphore
   become: yes
-
   vars:
     snmp_exporter_version: "0.21.0"
     snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
@@ -43,6 +42,7 @@
         src: "/tmp/snmp_exporter.tar.gz"
         dest: "/tmp/"
         remote_src: yes
+        creates: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
 
     - name: Copier le binaire snmp_exporter
       copy:
@@ -52,7 +52,7 @@
         group: "{{ snmp_exporter_user }}"
         mode: '0755'
 
-    - name: Copier la configuration snmp.yml (exemple minimaliste)
+    - name: Copier la configuration snmp.yml (valide)
       copy:
         content: |
           modules:
@@ -60,17 +60,14 @@
               walk:
                 - 1.3.6.1.2.1.2
                 - 1.3.6.1.2.1.31
-              metrics:
-                - name: ifInOctets
-                  oid: 1.3.6.1.2.1.2.2.1.10
-                  type: counter
-                - name: ifOutOctets
-                  oid: 1.3.6.1.2.1.2.2.1.16
-                  type: counter
+              version: 2c
+              auth:
+                community: public
         dest: "{{ snmp_exporter_install_dir }}/snmp.yml"
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
+      notify: Restart snmp_exporter
 
     - name: Créer un service systemd pour snmp_exporter
       copy:
@@ -90,12 +87,20 @@
           [Install]
           WantedBy=multi-user.target
         mode: '0644'
+      notify: Reload systemd daemon
 
+  handlers:
     - name: Reload systemd daemon
       systemd:
         daemon_reload: yes
 
-    - name: Enable and start snmp_exporter service
+    - name: Restart snmp_exporter
+      systemd:
+        name: snmp_exporter
+        state: restarted
+        enabled: yes
+
+    - name: Start snmp_exporter
       systemd:
         name: snmp_exporter
         state: started
