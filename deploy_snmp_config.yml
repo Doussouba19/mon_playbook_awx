@@ -5,15 +5,11 @@
   vars:
     generator_dir: /opt/snmp_exporter_generator
     snmp_yml_dest: /etc/snmp_exporter/snmp.yml
-
   tasks:
+
     - name: Installer les dépendances nécessaires
       apt:
-        name:
-          - git
-          - make
-          - golang-go
-          - libsnmp-dev  # Dépendance manquante pour compiler les MIBs
+        name: [git, make, golang-go, libsnmp-dev]
         state: present
         update_cache: yes
 
@@ -57,7 +53,6 @@
         path: "{{ generator_dir }}/generator/Makefile"
         regexp: '^.*apc-powernet-mib.*$'
         replace: ''
-      notify: Recharger systemd
 
     - name: Compiler les MIBs
       command: make mibs
@@ -82,3 +77,8 @@
         name: snmp_exporter
         state: restarted
         daemon_reload: yes
+
+handlers:
+  - name: Recharger systemd
+    systemd:
+      daemon_reload: yes
