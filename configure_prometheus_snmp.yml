@@ -34,10 +34,7 @@
             params:
               module: [if_mib]
             static_configs:
-              - targets:
-{% for target in snmp_targets %}
-                  - '{{ target }}'
-{% endfor %}
+              - targets: ['10.0.57.34:9116', '10.0.57.35:9116', '10.0.57.36:9116']
 
     - name: Redémarrer Prometheus pour appliquer la nouvelle configuration
       systemd:
