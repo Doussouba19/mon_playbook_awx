@@ -1,12 +1,37 @@
 ---
-- name: Redémarrer Prometheus avec la configuration SNMP déjà en place
+- name: Déployer la configuration SNMP Exporter sur tous les serveurs
   hosts: grafana
   become: yes
   vars:
     prometheus_config_path: "/etc/prometheus/prometheus.yml"
 
   tasks:
-    - name: Sauvegarder l'ancien fichier prometheus.yml
+
+    - name: Écrire un snmp.yml valide (seulement pour itop & semaphore)
+      when: inventory_hostname in groups['itop'] + groups['semaphore']
+      copy:
+        dest: /usr/local/snmp_exporter/snmp.yml
+        content: |
+          if_mib:
+            walk:
+              - 1.3.6.1.2.1.2
+              - 1.3.6.1.2.1.31
+            version: 2c
+            auth:
+              community: public
+        owner: snmp_exporter
+        group: snmp_exporter
+        mode: '0644'
+
+    - name: Redémarrer snmp_exporter
+      when: inventory_hostname in groups['itop'] + groups['semaphore']
+      systemd:
+        name: snmp_exporter
+        state: restarted
+        enabled: yes
+
+    - name: Sauvegarder le fichier prometheus.yml
+      when: inventory_hostname in groups['grafana']
       copy:
         src: "{{ prometheus_config_path }}"
         dest: "{{ prometheus_config_path }}.backup"
@@ -14,13 +39,45 @@
         backup: yes
       ignore_errors: yes
 
-    - name: Vérifier la validité du fichier prometheus.yml
+    - name: Supprimer les anciens jobs SNMP dans prometheus.yml
+      when: inventory_hostname in groups['grafana']
+      blockinfile:
+        path: "{{ prometheus_config_path }}"
+        state: absent
+        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
+
+    - name: Ajouter la configuration SNMP Exporter propre
+      when: inventory_hostname in groups['grafana']
+      blockinfile:
+        path: "{{ prometheus_config_path }}"
+        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
+        insertafter: '^scrape_configs:'
+        block: |
+          - job_name: 'snmp'
+            metrics_path: /snmp
+            params:
+              module: [if_mib]
+            static_configs:
+              - targets:
+                  - "10.0.57.34:9116"
+                  - "10.0.57.35:9116"
+                  - "10.0.57.36:9116"
+
+    - name: Installer yamllint si non installé
+      when: inventory_hostname in groups['grafana']
+      package:
+        name: yamllint
+        state: present
+
+    - name: Vérifier la validité YAML du prometheus.yml
+      when: inventory_hostname in groups['grafana']
       command: yamllint {{ prometheus_config_path }}
       register: yamllint_result
       failed_when: yamllint_result.rc != 0
       changed_when: false
 
-    - name: Redémarrer Prometheus pour appliquer la configuration
+    - name: Redémarrer Prometheus
+      when: inventory_hostname in groups['grafana']
       systemd:
         name: prometheus
         state: restarted
