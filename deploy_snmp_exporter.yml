@@ -1,5 +1,5 @@
 ---
-- name: Installer et configurer SNMP Exporter en version 0.21.0
+- name: Réinstaller SNMP Exporter 0.21.0 proprement
   hosts:
     - grafana
     - itop
@@ -12,8 +12,33 @@
     snmp_exporter_user: "snmp_exporter"
 
   tasks:
+    - name: Arrêter et désactiver l'ancien service snmp_exporter
+      systemd:
+        name: snmp_exporter
+        state: stopped
+        enabled: no
+      ignore_errors: yes
+
+    - name: Supprimer l'ancien service systemd
+      file:
+        path: /etc/systemd/system/snmp_exporter.service
+        state: absent
+
+    - name: Supprimer le répertoire d'installation snmp_exporter
+      file:
+        path: "{{ snmp_exporter_install_dir }}"
+        state: absent
+
+    - name: Supprimer les fichiers temporaires s’ils existent
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/snmp_exporter.tar.gz"
+        - "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64"
+
     - name: Créer l'utilisateur snmp_exporter
-      ansible.builtin.user:
+      user:
         name: "{{ snmp_exporter_user }}"
         shell: /usr/sbin/nologin
         system: yes
@@ -27,34 +52,34 @@
         group: "{{ snmp_exporter_user }}"
         mode: "0755"
 
-    - name: Télécharger SNMP Exporter archive
+    - name: Télécharger SNMP Exporter
       get_url:
         url: "{{ snmp_exporter_url }}"
         dest: "/tmp/snmp_exporter.tar.gz"
         mode: '0644'
-      register: download_snmp_exporter
-      until: download_snmp_exporter is succeeded
+      register: download_result
+      until: download_result is succeeded
       retries: 3
       delay: 10
 
-    - name: Extraire SNMP Exporter archive
+    - name: Extraire SNMP Exporter
       unarchive:
         src: "/tmp/snmp_exporter.tar.gz"
         dest: "/tmp/"
         remote_src: yes
-        creates: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
 
-    - name: Copier le binaire snmp_exporter depuis l'hôte distant
+    - name: Copier le binaire snmp_exporter
       copy:
         src: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
         dest: "{{ snmp_exporter_install_dir }}/snmp_exporter"
+        mode: '0755'
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
-        mode: '0755'
         remote_src: yes
 
     - name: Copier la configuration snmp.yml
       copy:
+        dest: "{{ snmp_exporter_install_dir }}/snmp.yml"
         content: |
           modules:
             if_mib:
@@ -64,12 +89,11 @@
               version: 2c
               auth:
                 community: public
-        dest: "{{ snmp_exporter_install_dir }}/snmp.yml"
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
 
-    - name: Créer le service systemd pour snmp_exporter
+    - name: Créer le service systemd
       copy:
         dest: /etc/systemd/system/snmp_exporter.service
         content: |
