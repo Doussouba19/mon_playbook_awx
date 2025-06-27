@@ -23,7 +23,7 @@
           scrape_configs:
             - job_name: 'snmp'
               static_configs:
-                - targets: ['10.0.57.34:9116', '10.0.57.35:9116', '10.0.57.36:9116']
+                - targets: ['10.0.57.34:161', '10.0.57.35:161', '10.0.57.36:161']
               metrics_path: /snmp
               params:
                 module: [if_mib]
@@ -37,7 +37,23 @@
                   replacement: localhost:9116
         mode: '0644'
 
-    - name: Redémarrer Prometheus pour appliquer les modifications
+    - name: Recharger systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Redémarrer Prometheus
       systemd:
         name: prometheus
         state: restarted
+        enabled: yes
+
+    - name: Vérifier que Prometheus est prêt
+      uri:
+        url: http://localhost:9090/-/ready
+        method: GET
+        return_content: yes
+      register: prometheus_status
+
+    - name: Afficher le statut de Prometheus
+      debug:
+        msg: "Prometheus est prêt : {{ prometheus_status.status }} - {{ prometheus_status.content }}"
