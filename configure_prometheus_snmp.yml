@@ -1,6 +1,6 @@
 ---
 - name: Configurer Prometheus pour scrapper SNMP Exporter
-  hosts: prometheus
+  hosts: grafana  # <-- Changement ici
   become: yes
   vars:
     prometheus_config_path: "/etc/prometheus/prometheus.yml"
@@ -10,12 +10,6 @@
       - "10.0.57.36:9116"
 
   tasks:
-    - name: Installer Prometheus (si pas encore installé)
-      apt:
-        name: prometheus
-        state: present
-        update_cache: yes
-
     - name: Sauvegarder l'ancien fichier prometheus.yml
       copy:
         src: "{{ prometheus_config_path }}"
@@ -34,7 +28,7 @@
             params:
               module: [if_mib]
             static_configs:
-              - targets: ['10.0.57.34:9116', '10.0.57.35:9116', '10.0.57.36:9116']
+              - targets: {{ snmp_targets | to_nice_yaml(indent=16) | indent(14) }}
 
     - name: Redémarrer Prometheus pour appliquer la nouvelle configuration
       systemd:
