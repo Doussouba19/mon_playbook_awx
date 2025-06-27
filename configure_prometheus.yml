@@ -4,7 +4,10 @@
   become: yes
   vars:
     prometheus_config_path: "/etc/prometheus/prometheus.yml"
-    snmp_exporter_target: "10.0.57.36:9116"  # port par défaut snmp_exporter
+    snmp_targets:
+      - "10.0.57.34:9116"
+      - "10.0.57.35:9116"
+      - "10.0.57.36:9116"
 
   tasks:
     - name: Installer Prometheus (si pas encore installé)
@@ -13,7 +16,7 @@
         state: present
         update_cache: yes
 
-    - name: Sauvegarder l'ancien fichier prometheus.yml
+    - name: Sauvegarder l'ancien prometheus.yml
       copy:
         src: "{{ prometheus_config_path }}"
         dest: "{{ prometheus_config_path }}.backup"
@@ -21,18 +24,30 @@
         backup: yes
       ignore_errors: yes
 
-    - name: Ajouter la configuration SNMP Exporter au fichier prometheus.yml
+    - name: Ajouter le job SNMP Exporter
       blockinfile:
         path: "{{ prometheus_config_path }}"
         marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
         block: |
-          - job_name: 'snmp_exporter'
+          - job_name: 'snmp'
             static_configs:
-              - targets: ['{{ snmp_exporter_target }}']
+              - targets:
+{% for target in snmp_targets %}
+                  - '{{ target }}'
+{% endfor %}
             metrics_path: /snmp
             params:
-              module: [default]
-    - name: Redémarrer Prometheus pour prendre en compte la nouvelle config
+              module: [if_mib]
+
+    - name: Vérifier la validité du fichier prometheus.yml
+      command: promtool check config {{ prometheus_config_path }}
+      register: promtool_result
+      failed_when: "'SUCCESS' not in promtool_result.stdout"
+      changed_when: false
+      ignore_errors: yes
+
+    - name: Redémarrer Prometheus
       systemd:
         name: prometheus
         state: restarted
+      when: promtool_result is succeeded
