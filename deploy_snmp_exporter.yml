@@ -110,7 +110,6 @@
   tasks:
     - name: Sauvegarder l'ancien fichier prometheus.yml
       copy:
-        src: "{{ prometheus_config_path }}"
         dest: "{{ prometheus_config_path }}.bak"
         remote_src: yes
         backup: yes
@@ -138,8 +137,10 @@
         dest: "{{ prometheus_config_path }}"
         mode: '0644'
         backup: yes
+      notify: Restart prometheus
 
-    - name: Redémarrer le service prometheus
+  handlers:
+    - name: Restart prometheus
       systemd:
         name: prometheus
         state: restarted
