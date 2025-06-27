@@ -1,0 +1,35 @@
+---
+- name: Création d'un utilisateur root centralisé (sans copier la clé)
+  hosts: all
+  become: yes
+  tasks:
+    - name: Vérifier si l'utilisateur existe déjà
+      command: id automation-admin
+      register: check_user
+      ignore_errors: yes
+
+    - name: Créer l'utilisateur automation-admin s'il n'existe pas
+      user:
+        name: automation-admin
+        shell: /bin/bash
+        groups: sudo
+        append: yes
+        create_home: yes
+        state: present
+      when: check_user.rc != 0
+
+    - name: Créer le répertoire .ssh s'il n'existe pas
+      file:
+        path: /home/automation-admin/.ssh
+        state: directory
+        owner: automation-admin
+        group: automation-admin
+        mode: '0700'
+
+    - name: S'assurer que le fichier authorized_keys existe
+      file:
+        path: /home/automation-admin/.ssh/authorized_keys
+        state: touch
+        owner: automation-admin
+        group: automation-admin
+        mode: '0600'
