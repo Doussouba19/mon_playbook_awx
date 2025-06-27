@@ -1,11 +1,11 @@
 ---
-- name: Installer et configurer SNMP Exporter sur tous les serveurs
+- name: Déployer SNMP Exporter sur tous les serveurs
   hosts:
     - grafana
     - itop
     - semaphore
   become: yes
-  become_method: sudo
+
   vars:
     snmp_exporter_version: "0.21.0"
     snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
@@ -33,17 +33,16 @@
         url: "{{ snmp_exporter_url }}"
         dest: "/tmp/snmp_exporter.tar.gz"
         mode: '0644'
+      register: download_snmp_exporter
+      until: download_snmp_exporter is succeeded
       retries: 3
       delay: 10
-      until: result is succeeded
-      register: result
 
     - name: Extraire SNMP Exporter archive
       unarchive:
         src: "/tmp/snmp_exporter.tar.gz"
         dest: "/tmp/"
         remote_src: yes
-        creates: "/tmp/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64/snmp_exporter"
 
     - name: Copier le binaire snmp_exporter
       copy:
@@ -72,7 +71,6 @@
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
-      notify: Restart snmp_exporter
 
     - name: Créer un service systemd pour snmp_exporter
       copy:
@@ -92,85 +90,13 @@
           [Install]
           WantedBy=multi-user.target
         mode: '0644'
-      notify: Reload systemd
 
     - name: Reload systemd daemon
       systemd:
         daemon_reload: yes
-      when: false  # ce sera fait via handler Reload systemd
 
     - name: Enable and start snmp_exporter service
       systemd:
         name: snmp_exporter
         state: started
-        enabled: yes
-
-    - name: Nettoyer les fichiers temporaires
-      file:
-        path: "/tmp/snmp_exporter.tar.gz"
-        state: absent
-
----
-
-- name: Déployer la configuration Prometheus sur le serveur Prometheus
-  hosts: grafana
-  become: yes
-  become_method: sudo
-  vars:
-    prometheus_config_path: "/etc/prometheus/prometheus.yml"
-
-  tasks:
-    - name: Sauvegarder l'ancien fichier prometheus.yml
-      copy:
-        src: "{{ prometheus_config_path }}"
-        dest: "{{ prometheus_config_path }}.bak"
-        remote_src: yes
-        backup: yes
-      ignore_errors: yes
-
-    - name: Copier la configuration prometheus.yml avec job snmp
-      copy:
-        content: |
-          global:
-            scrape_interval: 15s
-            evaluation_interval: 15s
-
-          scrape_configs:
-            - job_name: 'snmp'
-              static_configs:
-                - targets:
-                    - 10.0.57.35:9116
-                    - 10.0.57.36:9116
-                    - 10.0.57.34:9116
-              metrics_path: /snmp
-              params:
-                module: [if_mib]
-
-          # Autres configurations possibles à ajouter
-        dest: "{{ prometheus_config_path }}"
-        mode: '0644'
-        backup: yes
-      notify: Restart prometheus
-
-    - name: Démarrer et activer Prometheus
-      systemd:
-        name: prometheus
-        state: started
-        enabled: yes
-
-  handlers:
-    - name: Restart prometheus
-      systemd:
-        name: prometheus
-        state: restarted
-        enabled: yes
-
-    - name: Reload systemd
-      systemd:
-        daemon_reload: yes
-
-    - name: Restart snmp_exporter
-      systemd:
-        name: snmp_exporter
-        state: restarted
         enabled: yes
