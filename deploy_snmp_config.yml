@@ -5,11 +5,15 @@
   vars:
     generator_dir: /opt/snmp_exporter_generator
     snmp_yml_dest: /etc/snmp_exporter/snmp.yml
-  tasks:
 
+  tasks:
     - name: Installer les dépendances nécessaires
       apt:
-        name: [git, make, golang-go]
+        name:
+          - git
+          - make
+          - golang-go
+          - libsnmp-dev  # Dépendance manquante pour compiler les MIBs
         state: present
         update_cache: yes
 
@@ -49,9 +53,11 @@
               version: 2
 
     - name: Supprimer la ligne apc-powernet-mib du Makefile pour éviter l'erreur 404
-      ansible.builtin.command: sed -i '/apc-powernet-mib/d' Makefile
-      args:
-        chdir: "{{ generator_dir }}/generator"
+      replace:
+        path: "{{ generator_dir }}/generator/Makefile"
+        regexp: '^.*apc-powernet-mib.*$'
+        replace: ''
+      notify: Recharger systemd
 
     - name: Compiler les MIBs
       command: make mibs
