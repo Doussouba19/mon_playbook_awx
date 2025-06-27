@@ -1,84 +1,43 @@
 ---
-- name: Déployer la configuration SNMP Exporter sur tous les serveurs
-  hosts: grafana
+- name: Configurer Prometheus pour surveiller les exporteurs SNMP
+  hosts: prometheus
   become: yes
   vars:
-    prometheus_config_path: "/etc/prometheus/prometheus.yml"
+    prometheus_config_path: /etc/prometheus/prometheus.yml
 
   tasks:
-
-    - name: Écrire un snmp.yml valide (seulement pour itop & semaphore)
-      when: inventory_hostname in groups['itop'] + groups['semaphore']
-      copy:
-        dest: /usr/local/snmp_exporter/snmp.yml
-        content: |
-          if_mib:
-            walk:
-              - 1.3.6.1.2.1.2
-              - 1.3.6.1.2.1.31
-            version: 2c
-            auth:
-              community: public
-        owner: snmp_exporter
-        group: snmp_exporter
-        mode: '0644'
-
-    - name: Redémarrer snmp_exporter
-      when: inventory_hostname in groups['itop'] + groups['semaphore']
-      systemd:
-        name: snmp_exporter
-        state: restarted
-        enabled: yes
-
-    - name: Sauvegarder le fichier prometheus.yml
-      when: inventory_hostname in groups['grafana']
+    - name: Sauvegarder l’ancien prometheus.yml
       copy:
         src: "{{ prometheus_config_path }}"
         dest: "{{ prometheus_config_path }}.backup"
         remote_src: yes
-        backup: yes
-      ignore_errors: yes
+        mode: '0644'
 
-    - name: Supprimer les anciens jobs SNMP dans prometheus.yml
-      when: inventory_hostname in groups['grafana']
-      blockinfile:
-        path: "{{ prometheus_config_path }}"
-        state: absent
-        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
+    - name: Écrire le nouveau fichier de configuration Prometheus
+      copy:
+        dest: "{{ prometheus_config_path }}"
+        content: |
+          global:
+            scrape_interval: 15s
 
-    - name: Ajouter la configuration SNMP Exporter propre
-      when: inventory_hostname in groups['grafana']
-      blockinfile:
-        path: "{{ prometheus_config_path }}"
-        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
-        insertafter: '^scrape_configs:'
-        block: |
-          - job_name: 'snmp'
-            metrics_path: /snmp
-            params:
-              module: [if_mib]
-            static_configs:
-              - targets:
-                  - "10.0.57.34:9116"
-                  - "10.0.57.35:9116"
-                  - "10.0.57.36:9116"
+          scrape_configs:
+            - job_name: 'snmp'
+              static_configs:
+                - targets: ['10.0.57.34:9116', '10.0.57.35:9116', '10.0.57.36:9116']
+              metrics_path: /snmp
+              params:
+                module: [if_mib]
 
-    - name: Installer yamllint si non installé
-      when: inventory_hostname in groups['grafana']
-      package:
-        name: yamllint
-        state: present
+              relabel_configs:
+                - source_labels: [__address__]
+                  target_label: __param_target
+                - source_labels: [__param_target]
+                  target_label: instance
+                - target_label: __address__
+                  replacement: localhost:9116
+        mode: '0644'
 
-    - name: Vérifier la validité YAML du prometheus.yml
-      when: inventory_hostname in groups['grafana']
-      command: yamllint {{ prometheus_config_path }}
-      register: yamllint_result
-      failed_when: yamllint_result.rc != 0
-      changed_when: false
-
-    - name: Redémarrer Prometheus
-      when: inventory_hostname in groups['grafana']
+    - name: Redémarrer Prometheus pour appliquer les modifications
       systemd:
         name: prometheus
         state: restarted
-        enabled: yes
