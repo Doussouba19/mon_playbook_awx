@@ -1,5 +1,5 @@
 ---
-- name: Configurer Prometheus pour scrapper SNMP Exporter
+- name: Redémarrer Prometheus avec la configuration SNMP déjà en place
   hosts: grafana
   become: yes
   vars:
@@ -14,23 +14,14 @@
         backup: yes
       ignore_errors: yes
 
-    - name: Ajouter la configuration SNMP Exporter dans scrape_configs
-      blockinfile:
-        path: "{{ prometheus_config_path }}"
-        marker: "# {mark} ANSIBLE SNMP EXPORTER CONFIG"
-        insertafter: '^scrape_configs:'
-        block: |
-            - job_name: 'snmp_ansible'
-              metrics_path: /snmp
-              params:
-                module: [if_mib]
-              static_configs:
-                - targets:
-                    - "10.0.57.34:9116"
-                    - "10.0.57.35:9116"
-                    - "10.0.57.36:9116"
+    - name: Vérifier la validité du fichier prometheus.yml
+      command: yamllint {{ prometheus_config_path }}
+      register: yamllint_result
+      failed_when: yamllint_result.rc != 0
+      changed_when: false
 
-    - name: Redémarrer Prometheus pour appliquer la nouvelle configuration
+    - name: Redémarrer Prometheus pour appliquer la configuration
       systemd:
         name: prometheus
         state: restarted
+        enabled: yes
