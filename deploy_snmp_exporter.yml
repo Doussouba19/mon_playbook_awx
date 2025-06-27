@@ -5,6 +5,7 @@
     - itop
     - semaphore
   become: yes
+  become_method: sudo
   vars:
     snmp_exporter_version: "0.21.0"
     snmp_exporter_url: "https://github.com/prometheus/snmp_exporter/releases/download/v{{ snmp_exporter_version }}/snmp_exporter-{{ snmp_exporter_version }}.linux-amd64.tar.gz"
@@ -32,10 +33,10 @@
         url: "{{ snmp_exporter_url }}"
         dest: "/tmp/snmp_exporter.tar.gz"
         mode: '0644'
-      register: download_snmp_exporter
-      until: download_snmp_exporter is succeeded
       retries: 3
       delay: 10
+      until: result is succeeded
+      register: result
 
     - name: Extraire SNMP Exporter archive
       unarchive:
@@ -71,6 +72,7 @@
         owner: "{{ snmp_exporter_user }}"
         group: "{{ snmp_exporter_user }}"
         mode: '0644'
+      notify: Restart snmp_exporter
 
     - name: Créer un service systemd pour snmp_exporter
       copy:
@@ -90,10 +92,12 @@
           [Install]
           WantedBy=multi-user.target
         mode: '0644'
+      notify: Reload systemd
 
     - name: Reload systemd daemon
       systemd:
         daemon_reload: yes
+      when: false  # ce sera fait via handler Reload systemd
 
     - name: Enable and start snmp_exporter service
       systemd:
@@ -101,15 +105,24 @@
         state: started
         enabled: yes
 
+    - name: Nettoyer les fichiers temporaires
+      file:
+        path: "/tmp/snmp_exporter.tar.gz"
+        state: absent
+
+---
+
 - name: Déployer la configuration Prometheus sur le serveur Prometheus
   hosts: grafana
   become: yes
+  become_method: sudo
   vars:
     prometheus_config_path: "/etc/prometheus/prometheus.yml"
 
   tasks:
     - name: Sauvegarder l'ancien fichier prometheus.yml
       copy:
+        src: "{{ prometheus_config_path }}"
         dest: "{{ prometheus_config_path }}.bak"
         remote_src: yes
         backup: yes
@@ -133,15 +146,31 @@
               params:
                 module: [if_mib]
 
-          # Les autres configurations existantes peuvent être ajoutées ici
+          # Autres configurations possibles à ajouter
         dest: "{{ prometheus_config_path }}"
         mode: '0644'
         backup: yes
       notify: Restart prometheus
 
+    - name: Démarrer et activer Prometheus
+      systemd:
+        name: prometheus
+        state: started
+        enabled: yes
+
   handlers:
     - name: Restart prometheus
       systemd:
         name: prometheus
+        state: restarted
+        enabled: yes
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Restart snmp_exporter
+      systemd:
+        name: snmp_exporter
         state: restarted
         enabled: yes
