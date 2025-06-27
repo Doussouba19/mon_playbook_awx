@@ -48,6 +48,11 @@
                 - .1.3.6.1.4.1.2021.9
               version: 2
 
+    - name: Supprimer la ligne apc-powernet-mib du Makefile pour éviter l'erreur 404
+      ansible.builtin.command: sed -i '/apc-powernet-mib/d' Makefile
+      args:
+        chdir: "{{ generator_dir }}/generator"
+
     - name: Compiler les MIBs
       command: make mibs
       args:
