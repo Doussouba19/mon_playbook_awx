@@ -13,11 +13,12 @@
     backup_file: "{{ backup_dir }}/html_backup_{{ timestamp }}.tar.gz"
 
   tasks:
-    - name: Installer unzip et wget si manquants
+    - name: Installer unzip, wget et rsync si manquants
       apt:
         name:
           - unzip
           - wget
+          - rsync
         state: present
 
     - name: Sauvegarder le dossier /var/www/html
@@ -57,14 +58,11 @@
         remote_src: yes
 
     - name: Copier dossier webservices (API REST) dans /var/www/html
-      copy:
+      synchronize:
         src: "{{ itop_extract_dir }}/webservices/"
         dest: "{{ itop_web_dir }}/webservices/"
-        remote_src: yes
-        owner: www-data
-        group: www-data
-        mode: '0755'
-        recurse: yes
+        rsync_opts:
+          - "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r"
 
     - name: Redémarrer Apache
       service:
