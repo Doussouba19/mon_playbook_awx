@@ -9,7 +9,6 @@
     exporter_port: 9104
     exporter_bin: /usr/local/bin/mysqld_exporter
     cnf_path: /etc/.mysqld_exporter.cnf
-    mysql_root_password: "azerty"
 
   tasks:
     - name: Vérifier si MySQL est installé (commande disponible)
@@ -17,7 +16,7 @@
       register: mysql_check
       ignore_errors: yes
 
-    - name: Créer un fichier temporaire de connexion root MySQL
+    - name: Créer un fichier temporaire .my.cnf pour root si mot de passe root défini
       copy:
         dest: /root/.my.cnf
         content: |
@@ -27,7 +26,7 @@
         owner: root
         group: root
         mode: '0600'
-      when: mysql_check.rc == 0
+      when: mysql_check.rc == 0 and mysql_root_password is defined
 
     - name: Créer l'utilisateur mysqld_exporter dans MySQL
       shell: |
@@ -35,13 +34,13 @@
         CREATE USER IF NOT EXISTS '{{ exporter_user }}'@'localhost' IDENTIFIED BY '{{ exporter_password }}';
         GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ exporter_user }}'@'localhost';
         FLUSH PRIVILEGES;"
-      when: mysql_check.rc == 0
+      when: mysql_check.rc == 0 and mysql_root_password is defined
 
-    - name: Supprimer le fichier temporaire de connexion MySQL root
+    - name: Supprimer le fichier temporaire .my.cnf
       file:
         path: /root/.my.cnf
         state: absent
-      when: mysql_check.rc == 0
+      when: mysql_check.rc == 0 and mysql_root_password is defined
 
     - name: Créer le fichier .mysqld_exporter.cnf
       copy:
@@ -72,8 +71,7 @@
 
           [Install]
           WantedBy=multi-user.target
-      notify:
-        - Reload systemd
+      notify: Reload systemd
 
     - name: Vérifier la présence du binaire mysqld_exporter
       stat:
