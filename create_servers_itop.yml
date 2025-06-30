@@ -1,42 +1,32 @@
 ---
 - name: Création serveur iTop avec collecte auto des infos
   hosts: all
-  become: yes
   gather_facts: yes
-
   vars:
-    itop_url: "http://10.0.57.36/web/webservices/rest.php"
-    itop_user: "rest_user"
-    itop_password: "RestUser@123"
-    default_org_id: "4"           # API Users
-    default_location_id: "3"      # Paris
-    default_rack_id: "15"         # Rack1
+    itop_url: "http://localhost/itop/webservices/rest.php"
+    itop_user: "admin"
+    itop_password: "admin"
+    default_org_id: "API Users"
+    default_location_id: "Paris"
+    default_rack_id: "Rack1"
+    move2production: "2024-06-01"
+    purchase_date: "2024-05-01"
+    end_of_warranty: "2027-05-01"
 
   tasks:
-
     - name: Récupérer la marque du serveur
-      command: dmidecode -s system-manufacturer
-      register: manufacturer_output
-      changed_when: false
+      set_fact:
+        brand_name: "{{ ansible_product_name.split()[0] }}"
 
     - name: Récupérer le modèle du serveur
-      command: dmidecode -s system-product-name
-      register: model_output
-      changed_when: false
+      set_fact:
+        model_name: "{{ ansible_product_name }}"
 
     - name: Définir les variables dynamiques
       set_fact:
-        brand_name: "{{ manufacturer_output.stdout | trim }}"
-        model_name: "{{ model_output.stdout | trim }}"
-        osfamily_name: "{{ ansible_distribution | trim }}"
-        osversion_name: "{{ ansible_distribution_version | trim }}"
-        cpu_name: "{{ ansible_processor[1] | default('Unknown') }}"
-        ram_size: "{{ ansible_memtotal_mb | default('0') }}"
-        ip_addr: "{{ ansible_default_ipv4.address }}"
-        today_date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
-        warranty_end_date: "{{ lookup('pipe', 'date -d \"+3 years\" +%Y-%m-%d') }}"
+        os_family: "{{ ansible_os_family }}"
+        os_version: "{{ ansible_distribution_version }}"
 
-    # Récupération des IDs iTop pour les objets
     - name: Obtenir l'ID de la marque dans iTop
       uri:
         url: "{{ itop_url }}"
@@ -47,13 +37,11 @@
         body_format: form-urlencoded
         body:
           json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "Brand",
-                "key": "name='{{ brand_name }}'"
-              } | to_json
-            }}
+            {{ {
+              "operation": "core/get",
+              "class": "Brand",
+              "key": "name LIKE '%" + brand_name + "%'"
+            } | to_json }}
       register: brand_response
 
     - name: Obtenir l'ID du modèle dans iTop
@@ -66,13 +54,11 @@
         body_format: form-urlencoded
         body:
           json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "Model",
-                "key": "name='{{ model_name }}'"
-              } | to_json
-            }}
+            {{ {
+              "operation": "core/get",
+              "class": "Model",
+              "key": "name LIKE '%" + model_name + "%'"
+            } | to_json }}
       register: model_response
 
     - name: Obtenir l'ID de la famille OS dans iTop
@@ -85,13 +71,11 @@
         body_format: form-urlencoded
         body:
           json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "OSFamily",
-                "key": "name='{{ osfamily_name }}'"
-              } | to_json
-            }}
+            {{ {
+              "operation": "core/get",
+              "class": "OSFamily",
+              "key": "name LIKE '%" + os_family + "%'"
+            } | to_json }}
       register: osfamily_response
 
     - name: Obtenir l'ID de la version OS dans iTop
@@ -104,27 +88,21 @@
         body_format: form-urlencoded
         body:
           json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "OSVersion",
-                "key": "name='{{ osversion_name }}'"
-              } | to_json
-            }}
+            {{ {
+              "operation": "core/get",
+              "class": "OSVersion",
+              "key": "name LIKE '%" + os_version + "%'"
+            } | to_json }}
       register: osversion_response
 
     - name: Vérifier que tous les IDs existent
       fail:
         msg: "L'un des objets (marque, modèle, OS) est introuvable dans iTop."
-      when: >
-        brand_response.json.objects is not defined or
-        model_response.json.objects is not defined or
-        osfamily_response.json.objects is not defined or
-        osversion_response.json.objects is not defined or
-        brand_response.json.objects | length == 0 or
-        model_response.json.objects | length == 0 or
-        osfamily_response.json.objects | length == 0 or
-        osversion_response.json.objects | length == 0
+      when:
+        - brand_response.json.objects is not defined or brand_response.json.objects | length == 0
+        - model_response.json.objects is not defined or model_response.json.objects | length == 0
+        - osfamily_response.json.objects is not defined or osfamily_response.json.objects | length == 0
+        - osversion_response.json.objects is not defined or osversion_response.json.objects | length == 0
 
     - name: Envoi du serveur dans iTop
       uri:
@@ -136,38 +114,35 @@
         body_format: form-urlencoded
         body:
           json_data: >
-            {{
-              {
-                "version": "1.3",
-                "operation": "core/create",
-                "class": "Server",
-                "comment": "Créé automatiquement depuis Ansible avec détection auto des infos",
-                "fields": {
-                  "name": inventory_hostname,
-                  "org_id": default_org_id,
-                  "status": "production",
-                  "business_criticity": "low",
-                  "location_id": default_location_id,
-                  "rack_id": default_rack_id,
-                  "brand_id": (brand_response.json.objects | dict2items)[0].value.key,
-                  "model_id": (model_response.json.objects | dict2items)[0].value.key,
-                  "osfamily_id": (osfamily_response.json.objects | dict2items)[0].value.key,
-                  "osversion_id": (osversion_response.json.objects | dict2items)[0].value.key,
-                  "cpu": cpu_name,
-                  "ram": ram_size,
-                  "nb_u": "2",
-                  "serialnumber": "SRV-{{ ip_addr }}",
-                  "asset_number": "AST-{{ ip_addr }}",
-                  "move2production": "{{ today_date }}",
-                  "purchase_date": "{{ today_date }}",
-                  "end_of_warranty": "{{ warranty_end_date }}",
-                  "description": "Créé automatiquement depuis Ansible avec données enrichies"
-                }
-              } | to_json
-            }}
-        status_code: 200
-      register: itop_response
+            {{ {
+              "version": "1.3",
+              "operation": "core/create",
+              "class": "Server",
+              "comment": "Créé automatiquement depuis Ansible",
+              "fields": {
+                "name": inventory_hostname,
+                "org_id": default_org_id,
+                "status": "production",
+                "business_criticity": "low",
+                "location_id": default_location_id,
+                "rack_id": default_rack_id,
+                "brand_id": (brand_response.json.objects | dict2items)[0].value.key,
+                "model_id": (model_response.json.objects | dict2items)[0].value.key,
+                "osfamily_id": (osfamily_response.json.objects | dict2items)[0].value.key,
+                "osversion_id": (osversion_response.json.objects | dict2items)[0].value.key,
+                "cpu": ansible_processor[1] | default('Unknown'),
+                "ram": ansible_memtotal_mb | default('0'),
+                "nb_u": "2",
+                "serialnumber": "SRV-" + ansible_default_ipv4.address,
+                "asset_number": "AST-" + ansible_default_ipv4.address,
+                "move2production": move2production,
+                "purchase_date": purchase_date,
+                "end_of_warranty": end_of_warranty,
+                "description": "Créé automatiquement depuis Ansible avec détection auto des infos"
+              }
+            } | to_json }}
+      register: create_response
 
-    - name: Afficher la réponse d’iTop
+    - name: Afficher la réponse de création
       debug:
-        var: itop_response.json
+        var: create_response.json
