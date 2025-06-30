@@ -12,23 +12,20 @@
   tasks:
     - name: Construire les données serveur
       set_fact:
-        server_data: |
-          {
-            "version": "{{ itop_version }}",
-            "operation": "core/create",
-            "class": "Server",
-            "comment": "Ajout automatique depuis Ansible",
-            "fields": {
-              "name": "{{ ansible_hostname }}",
-              "org_id": "{{ org_id }}",
-              "status": "production",
-              "os_family": "{{ ansible_os_family }}",
-              "os_version": "{{ ansible_distribution }} {{ ansible_distribution_version }}",
-              "cpu": "{{ ansible_processor[1] | default('Unknown') }}",
-              "ram": "{{ ansible_memtotal_mb }}",
-              "description": "Serveur ajouté depuis Ansible via REST API"
-            }
-          }
+        server_payload:
+          version: "{{ itop_version }}"
+          operation: "core/create"
+          class: "Server"
+          comment: "Ajout automatique depuis Ansible"
+          fields:
+            name: "{{ ansible_hostname }}"
+            org_id: "{{ org_id }}"
+            status: "production"
+            os_family: "{{ ansible_os_family }}"
+            os_version: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+            cpu: "{{ ansible_processor[1] | default('Unknown') }}"
+            ram: "{{ ansible_memtotal_mb }}"
+            description: "Serveur ajouté depuis Ansible via REST API"
 
     - name: Envoyer les données à iTop via API REST
       uri:
@@ -39,7 +36,7 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          json_data: "{{ server_data | string }}"
+          json_data: "{{ server_payload | to_json }}"
         return_content: yes
       register: itop_response
 
