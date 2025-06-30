@@ -63,6 +63,7 @@
         dest: "{{ itop_web_dir }}/webservices/"
         rsync_opts:
           - "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r"
+        remote_src: yes
 
     - name: Redémarrer Apache
       service:
