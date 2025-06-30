@@ -103,15 +103,6 @@
             }}
       register: osversion_response
 
-    - name: Vérifier que tous les IDs existent
-      fail:
-        msg: "L'un des objets (marque, modèle, OS) est introuvable dans iTop."
-      when:
-        - brand_response.json.objects is not defined or (brand_response.json.objects | length == 0)
-        - model_response.json.objects is not defined or (model_response.json.objects | length == 0)
-        - osfamily_response.json.objects is not defined or (osfamily_response.json.objects | length == 0)
-        - osversion_response.json.objects is not defined or (osversion_response.json.objects | length == 0)
-
     - name: Envoi du serveur dans iTop
       uri:
         url: "{{ itop_url }}"
