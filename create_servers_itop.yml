@@ -1,6 +1,6 @@
 ---
 - name: Envoyer les serveurs vers iTop via API REST
-  hosts: all
+  hosts: itop_clients
   gather_facts: yes
   vars:
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
