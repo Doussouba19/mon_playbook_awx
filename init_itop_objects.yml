@@ -1,0 +1,114 @@
+---
+- name: Initialiser les objets iTop à partir des faits système
+  hosts: all
+  gather_facts: yes
+  vars:
+    itop_url: "http://10.0.57.36/web/webservices/rest.php"
+    itop_user: "admin"
+    itop_password: "admin"
+
+  tasks:
+    - name: Déduire les infos système
+      set_fact:
+        brand_name: "{{ ansible_product_name.split()[0] | default('HP') }}"
+        model_name: "{{ ansible_product_name | default('HP ProLiant') }}"
+        os_family: "{{ ansible_os_family | default('Linux') }}"
+        os_version: "{{ ansible_distribution_version | default('24.04') }}"
+
+    - name: Créer la marque si non existante
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "operation": "core/create",
+                "class": "Brand",
+                "comment": "Créé automatiquement",
+                "fields": { "name": brand_name }
+              } | to_json
+            }}
+      register: brand_creation
+      failed_when: false
+
+    - name: Créer le modèle si non existant
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "operation": "core/create",
+                "class": "Model",
+                "comment": "Créé automatiquement",
+                "fields": {
+                  "name": model_name,
+                  "brand_id": brand_name
+                }
+              } | to_json
+            }}
+      register: model_creation
+      failed_when: false
+
+    - name: Créer la famille OS si non existante
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "operation": "core/create",
+                "class": "OSFamily",
+                "comment": "Créé automatiquement",
+                "fields": { "name": os_family }
+              } | to_json
+            }}
+      register: osfamily_creation
+      failed_when: false
+
+    - name: Créer la version OS si non existante
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "operation": "core/create",
+                "class": "OSVersion",
+                "comment": "Créé automatiquement",
+                "fields": {
+                  "name": os_version,
+                  "osfamily_id": os_family
+                }
+              } | to_json
+            }}
+      register: osversion_creation
+      failed_when: false
+
+    - name: Afficher les résultats de création
+      debug:
+        msg:
+          - "Marque créée ou existante: {{ brand_creation.json | default('Déjà existante') }}"
+          - "Modèle créé ou existant: {{ model_creation.json | default('Déjà existant') }}"
+          - "OSFamily créée ou existante: {{ osfamily_creation.json | default('Déjà existante') }}"
+          - "OSVersion créée ou existante: {{ osversion_creation.json | default('Déjà existante') }}"
