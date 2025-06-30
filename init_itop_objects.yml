@@ -15,7 +15,7 @@
         os_family: "{{ ansible_os_family | default('Linux') }}"
         os_version: "{{ ansible_distribution_version | default('24.04') }}"
 
-    - name: Créer la marque si non existante
+    - name: Créer ou récupérer la marque (Brand)
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -24,19 +24,21 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
+          version: "1.3"
           json_data: >
             {{
               {
                 "operation": "core/create",
                 "class": "Brand",
                 "comment": "Créé automatiquement",
+                "version": "1.3",
                 "fields": { "name": brand_name }
               } | to_json
             }}
       register: brand_creation
       failed_when: false
 
-    - name: Créer le modèle si non existant
+    - name: Récupérer l'ID de la marque (Brand) si création a échoué
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -45,22 +47,55 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
+          version: "1.3"
+          json_data: >
+            {{
+              {
+                "operation": "core/get",
+                "class": "Brand",
+                "key": "SELECT Brand WHERE name='{{ brand_name }}'",
+                "version": "1.3"
+              } | to_json
+            }}
+      when: brand_creation.json.code != 0
+      register: brand_query
+
+    - name: Définir brand_id pour utilisation dans les créations suivantes
+      set_fact:
+        brand_id: >-
+          {{
+            (brand_creation.json.objects | default({})).keys() | list | first
+            if brand_creation.json.code == 0 else
+            (brand_query.json.objects | default({})).keys() | list | first
+          }}
+
+    - name: Créer ou récupérer le modèle (Model)
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          version: "1.3"
           json_data: >
             {{
               {
                 "operation": "core/create",
                 "class": "Model",
                 "comment": "Créé automatiquement",
+                "version": "1.3",
                 "fields": {
                   "name": model_name,
-                  "brand_id": brand_name
+                  "brand_id": brand_id
                 }
               } | to_json
             }}
       register: model_creation
       failed_when: false
 
-    - name: Créer la famille OS si non existante
+    - name: Créer ou récupérer la famille OS (OSFamily)
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -69,19 +104,21 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
+          version: "1.3"
           json_data: >
             {{
               {
                 "operation": "core/create",
                 "class": "OSFamily",
                 "comment": "Créé automatiquement",
+                "version": "1.3",
                 "fields": { "name": os_family }
               } | to_json
             }}
       register: osfamily_creation
       failed_when: false
 
-    - name: Créer la version OS si non existante
+    - name: Récupérer l'ID de la famille OS si création a échoué
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -90,15 +127,48 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
+          version: "1.3"
+          json_data: >
+            {{
+              {
+                "operation": "core/get",
+                "class": "OSFamily",
+                "key": "SELECT OSFamily WHERE name='{{ os_family }}'",
+                "version": "1.3"
+              } | to_json
+            }}
+      when: osfamily_creation.json.code != 0
+      register: osfamily_query
+
+    - name: Définir osfamily_id
+      set_fact:
+        osfamily_id: >-
+          {{
+            (osfamily_creation.json.objects | default({})).keys() | list | first
+            if osfamily_creation.json.code == 0 else
+            (osfamily_query.json.objects | default({})).keys() | list | first
+          }}
+
+    - name: Créer ou récupérer la version OS (OSVersion)
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          version: "1.3"
           json_data: >
             {{
               {
                 "operation": "core/create",
                 "class": "OSVersion",
                 "comment": "Créé automatiquement",
+                "version": "1.3",
                 "fields": {
                   "name": os_version,
-                  "osfamily_id": os_family
+                  "osfamily_id": osfamily_id
                 }
               } | to_json
             }}
