@@ -9,14 +9,39 @@
     exporter_port: 9104
     exporter_bin: /usr/local/bin/mysqld_exporter
     cnf_path: /etc/.mysqld_exporter.cnf
+    mysql_root_password: "azerty"
 
   tasks:
+    - name: Vérifier si MySQL est installé (commande disponible)
+      command: which mysql
+      register: mysql_check
+      ignore_errors: yes
+
+    - name: Créer un fichier temporaire de connexion root MySQL
+      copy:
+        dest: /root/.my.cnf
+        content: |
+          [client]
+          user=root
+          password={{ mysql_root_password }}
+        owner: root
+        group: root
+        mode: '0600'
+      when: mysql_check.rc == 0
+
     - name: Créer l'utilisateur mysqld_exporter dans MySQL
       shell: |
-        mysql -u root -e "
+        mysql --defaults-file=/root/.my.cnf -e "
         CREATE USER IF NOT EXISTS '{{ exporter_user }}'@'localhost' IDENTIFIED BY '{{ exporter_password }}';
         GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ exporter_user }}'@'localhost';
         FLUSH PRIVILEGES;"
+      when: mysql_check.rc == 0
+
+    - name: Supprimer le fichier temporaire de connexion MySQL root
+      file:
+        path: /root/.my.cnf
+        state: absent
+      when: mysql_check.rc == 0
 
     - name: Créer le fichier .mysqld_exporter.cnf
       copy:
