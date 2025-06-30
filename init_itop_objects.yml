@@ -15,9 +15,6 @@
         os_family: "{{ ansible_os_family | default('Linux') }}"
         os_version: "{{ ansible_distribution_version | default('24.04') }}"
 
-    ##########################
-    # Création / récupération Brand
-    ##########################
     - name: Créer la marque (Brand)
       uri:
         url: "{{ itop_url }}"
@@ -27,7 +24,7 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/create",
@@ -39,7 +36,7 @@
       register: brand_creation
       failed_when: false
 
-    - name: Récupérer la marque (Brand) si création a échoué (existe déjà)
+    - name: Récupérer la marque (Brand) si création a échoué
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -48,31 +45,24 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          version: "1.3"
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/get",
                 "class": "Brand",
-                "key": "SELECT Brand WHERE name='{{ brand_name }}'",
-                "version": "1.3"
+                "key": "SELECT Brand WHERE name='{{ brand_name }}'"
               } | to_json
             }}
       when: brand_creation.json.code != 0
       register: brand_query
 
-    - name: Définir brand_id complet (ex: Brand::54)
+    - name: Définir brand_id complet
       set_fact:
         brand_id: >-
-          {{
-            (brand_creation.json.objects | default({})).keys() | list | first
-            if brand_creation.json is defined and brand_creation.json.code == 0 else
-            ((brand_query.json.objects | default({})).keys() | list | first) | default('')
-          }}
+          "Brand::{{ (brand_creation.json.objects | default({})).keys() | list | first
+            if brand_creation.json.code == 0 else
+            ((brand_query.json.objects | default({})).keys() | list | first) }}"
 
-    ##########################
-    # Création / récupération Model
-    ##########################
     - name: Créer le modèle (Model)
       uri:
         url: "{{ itop_url }}"
@@ -82,7 +72,7 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/create",
@@ -106,31 +96,24 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          version: "1.3"
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/get",
                 "class": "Model",
-                "key": "SELECT Model WHERE name='{{ model_name }}'",
-                "version": "1.3"
+                "key": "SELECT Model WHERE name='{{ model_name }}'"
               } | to_json
             }}
       when: model_creation.json.code != 0
       register: model_query
 
-    - name: Définir model_id complet (ex: Model::xx)
+    - name: Définir model_id complet
       set_fact:
         model_id: >-
-          {{
-            (model_creation.json.objects | default({})).keys() | list | first
-            if model_creation.json is defined and model_creation.json.code == 0 else
-            ((model_query.json.objects | default({})).keys() | list | first) | default('')
-          }}
+          "Model::{{ (model_creation.json.objects | default({})).keys() | list | first
+            if model_creation.json.code == 0 else
+            ((model_query.json.objects | default({})).keys() | list | first) }}"
 
-    ##########################
-    # Création / récupération OSFamily
-    ##########################
     - name: Créer la famille OS (OSFamily)
       uri:
         url: "{{ itop_url }}"
@@ -140,7 +123,7 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/create",
@@ -161,31 +144,24 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          version: "1.3"
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/get",
                 "class": "OSFamily",
-                "key": "SELECT OSFamily WHERE name='{{ os_family }}'",
-                "version": "1.3"
+                "key": "SELECT OSFamily WHERE name='{{ os_family }}'"
               } | to_json
             }}
       when: osfamily_creation.json.code != 0
       register: osfamily_query
 
-    - name: Définir osfamily_id complet (ex: OSFamily::xx)
+    - name: Définir osfamily_id complet
       set_fact:
         osfamily_id: >-
-          {{
-            (osfamily_creation.json.objects | default({})).keys() | list | first
-            if osfamily_creation.json is defined and osfamily_creation.json.code == 0 else
-            ((osfamily_query.json.objects | default({})).keys() | list | first) | default('')
-          }}
+          "OSFamily::{{ (osfamily_creation.json.objects | default({})).keys() | list | first
+            if osfamily_creation.json.code == 0 else
+            ((osfamily_query.json.objects | default({})).keys() | list | first) }}"
 
-    ##########################
-    # Création / récupération OSVersion
-    ##########################
     - name: Créer la version OS (OSVersion)
       uri:
         url: "{{ itop_url }}"
@@ -195,7 +171,7 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/create",
@@ -219,36 +195,28 @@
         force_basic_auth: yes
         body_format: form-urlencoded
         body:
-          version: "1.3"
-          json_data: >
+          json_data: >-
             {{
               {
                 "operation": "core/get",
                 "class": "OSVersion",
-                "key": "SELECT OSVersion WHERE name='{{ os_version }}'",
-                "version": "1.3"
+                "key": "SELECT OSVersion WHERE name='{{ os_version }}'"
               } | to_json
             }}
       when: osversion_creation.json.code != 0
       register: osversion_query
 
-    - name: Définir osversion_id complet (ex: OSVersion::xx)
+    - name: Définir osversion_id complet
       set_fact:
         osversion_id: >-
-          {{
-            (osversion_creation.json.objects | default({})).keys() | list | first
-            if osversion_creation.json is defined and osversion_creation.json.code == 0 else
-            ((osversion_query.json.objects | default({})).keys() | list | first) | default('')
-          }}
+          "OSVersion::{{ (osversion_creation.json.objects | default({})).keys() | list | first
+            if osversion_creation.json.code == 0 else
+            ((osversion_query.json.objects | default({})).keys() | list | first) }}"
 
-    ##########################
-    # Afficher résultats
-    ##########################
     - name: Afficher les résultats de création / récupération
       debug:
         msg:
-          - "Marque créée ou existante: {{ brand_creation.json | default(brand_query.json) }}"
-          - "Modèle créé ou existant: {{ model_creation.json | default(model_query.json) }}"
-          - "OSFamily créée ou existante: {{ osfamily_creation.json | default(osfamily_query.json) }}"
-          - "OSVersion créée ou existante: {{ osversion_creation.json | default(osversion_query.json) }}"
-
+          - "Marque: {{ brand_id }}"
+          - "Modèle: {{ model_id }}"
+          - "OSFamily: {{ osfamily_id }}"
+          - "OSVersion: {{ osversion_id }}"
