@@ -35,7 +35,7 @@
 
     - name: Afficher le résultat de la sauvegarde
       debug:
-        msg: "Sauvegarde créée ici : {{ backup_file }}"
+        msg: "✅ Sauvegarde créée ici : {{ backup_file }}"
       when: backup_stat.stat.exists
 
     - name: Télécharger iTop
@@ -63,7 +63,7 @@
         dest: "{{ itop_web_dir }}/webservices/"
         rsync_opts:
           - "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r"
-        remote_src: yes
+      delegate_to: "{{ inventory_hostname }}"
 
     - name: Redémarrer Apache
       service:
