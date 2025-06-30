@@ -15,9 +15,7 @@
         os_family: "{{ ansible_os_family | default('Linux') }}"
         os_version: "{{ ansible_distribution_version | default('24.04') }}"
 
-    ##########################
-    # Brand
-    ##########################
+    # --- Brand ---
     - name: Créer la marque (Brand)
       uri:
         url: "{{ itop_url }}"
@@ -30,6 +28,7 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/create",
                 "class": "Brand",
                 "comment": "Créé automatiquement",
@@ -39,7 +38,7 @@
       register: brand_creation
       failed_when: false
 
-    - name: Récupérer la marque (Brand) si création a échoué
+    - name: Récupérer la marque (Brand) si création échouée
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -51,38 +50,26 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/get",
                 "class": "Brand",
-                "key": "SELECT Brand WHERE name='{{ brand_name }}'",
-                "version": "1.3"
+                "key": "SELECT Brand WHERE name='{{ brand_name }}'"
               } | to_json
             }}
       when: brand_creation.json.code != 0
       register: brand_query
 
-    - name: Définir brand_id complet (ex: Brand::54)
+    - name: Définir brand_id
       set_fact:
-        brand_id: >-
-          {{
-            "Brand::" ~ (
-              (brand_creation.json.objects | default({})).keys() | list | first
-              if brand_creation.json is defined and brand_creation.json.code == 0 and (brand_creation.json.objects | length > 0)
-              else
-              (brand_query.json.objects | default({})).keys() | list | first
-            )
-          }}
-      when:
-        - (brand_creation.json.objects is defined and (brand_creation.json.objects | length > 0)) or
-          (brand_query.json.objects is defined and (brand_query.json.objects | length > 0))
+        brand_id: "Brand::{{ (brand_creation.json.objects | dict2items)[0].key }}"
+      when: brand_creation.json.code == 0 and brand_creation.json.objects | length > 0
 
-    - name: Échec si aucun brand_id trouvé
-      fail:
-        msg: "Impossible de déterminer le brand_id."
-      when: brand_id is not defined
+    - name: Définir brand_id depuis récupération
+      set_fact:
+        brand_id: "Brand::{{ (brand_query.json.objects | dict2items)[0].key }}"
+      when: brand_id is not defined and brand_query.json.objects | length > 0
 
-    ##########################
-    # Model
-    ##########################
+    # --- Model ---
     - name: Créer le modèle (Model)
       uri:
         url: "{{ itop_url }}"
@@ -95,6 +82,7 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/create",
                 "class": "Model",
                 "comment": "Créé automatiquement",
@@ -107,7 +95,7 @@
       register: model_creation
       failed_when: false
 
-    - name: Récupérer le modèle (Model) si création a échoué
+    - name: Récupérer le modèle (Model) si création échouée
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -119,38 +107,26 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/get",
                 "class": "Model",
-                "key": "SELECT Model WHERE name='{{ model_name }}'",
-                "version": "1.3"
+                "key": "SELECT Model WHERE name='{{ model_name }}'"
               } | to_json
             }}
       when: model_creation.json.code != 0
       register: model_query
 
-    - name: Définir model_id complet
+    - name: Définir model_id
       set_fact:
-        model_id: >-
-          {{
-            "Model::" ~ (
-              (model_creation.json.objects | default({})).keys() | list | first
-              if model_creation.json is defined and model_creation.json.code == 0 and (model_creation.json.objects | length > 0)
-              else
-              (model_query.json.objects | default({})).keys() | list | first
-            )
-          }}
-      when:
-        - (model_creation.json.objects is defined and (model_creation.json.objects | length > 0)) or
-          (model_query.json.objects is defined and (model_query.json.objects | length > 0))
+        model_id: "Model::{{ (model_creation.json.objects | dict2items)[0].key }}"
+      when: model_creation.json.code == 0 and model_creation.json.objects | length > 0
 
-    - name: Échec si aucun model_id trouvé
-      fail:
-        msg: "Impossible de déterminer le model_id."
-      when: model_id is not defined
+    - name: Définir model_id depuis récupération
+      set_fact:
+        model_id: "Model::{{ (model_query.json.objects | dict2items)[0].key }}"
+      when: model_id is not defined and model_query.json.objects | length > 0
 
-    ##########################
-    # OSFamily
-    ##########################
+    # --- OSFamily ---
     - name: Créer la famille OS (OSFamily)
       uri:
         url: "{{ itop_url }}"
@@ -163,6 +139,7 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/create",
                 "class": "OSFamily",
                 "comment": "Créé automatiquement",
@@ -172,7 +149,7 @@
       register: osfamily_creation
       failed_when: false
 
-    - name: Récupérer OSFamily si création a échoué
+    - name: Récupérer la famille OS si création échouée
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -184,38 +161,26 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/get",
                 "class": "OSFamily",
-                "key": "SELECT OSFamily WHERE name='{{ os_family }}'",
-                "version": "1.3"
+                "key": "SELECT OSFamily WHERE name='{{ os_family }}'"
               } | to_json
             }}
       when: osfamily_creation.json.code != 0
       register: osfamily_query
 
-    - name: Définir osfamily_id complet
+    - name: Définir osfamily_id
       set_fact:
-        osfamily_id: >-
-          {{
-            "OSFamily::" ~ (
-              (osfamily_creation.json.objects | default({})).keys() | list | first
-              if osfamily_creation.json is defined and osfamily_creation.json.code == 0 and (osfamily_creation.json.objects | length > 0)
-              else
-              (osfamily_query.json.objects | default({})).keys() | list | first
-            )
-          }}
-      when:
-        - (osfamily_creation.json.objects is defined and (osfamily_creation.json.objects | length > 0)) or
-          (osfamily_query.json.objects is defined and (osfamily_query.json.objects | length > 0))
+        osfamily_id: "OSFamily::{{ (osfamily_creation.json.objects | dict2items)[0].key }}"
+      when: osfamily_creation.json.code == 0 and osfamily_creation.json.objects | length > 0
 
-    - name: Échec si aucun osfamily_id trouvé
-      fail:
-        msg: "Impossible de déterminer le osfamily_id."
-      when: osfamily_id is not defined
+    - name: Définir osfamily_id depuis récupération
+      set_fact:
+        osfamily_id: "OSFamily::{{ (osfamily_query.json.objects | dict2items)[0].key }}"
+      when: osfamily_id is not defined and osfamily_query.json.objects | length > 0
 
-    ##########################
-    # OSVersion
-    ##########################
+    # --- OSVersion ---
     - name: Créer la version OS (OSVersion)
       uri:
         url: "{{ itop_url }}"
@@ -228,6 +193,7 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/create",
                 "class": "OSVersion",
                 "comment": "Créé automatiquement",
@@ -240,7 +206,7 @@
       register: osversion_creation
       failed_when: false
 
-    - name: Récupérer OSVersion si création a échoué
+    - name: Récupérer la version OS si création échouée
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -252,42 +218,30 @@
           json_data: >
             {{
               {
+                "version": "1.3",
                 "operation": "core/get",
                 "class": "OSVersion",
-                "key": "SELECT OSVersion WHERE name='{{ os_version }}'",
-                "version": "1.3"
+                "key": "SELECT OSVersion WHERE name='{{ os_version }}'"
               } | to_json
             }}
       when: osversion_creation.json.code != 0
       register: osversion_query
 
-    - name: Définir osversion_id complet
+    - name: Définir osversion_id
       set_fact:
-        osversion_id: >-
-          {{
-            "OSVersion::" ~ (
-              (osversion_creation.json.objects | default({})).keys() | list | first
-              if osversion_creation.json is defined and osversion_creation.json.code == 0 and (osversion_creation.json.objects | length > 0)
-              else
-              (osversion_query.json.objects | default({})).keys() | list | first
-            )
-          }}
-      when:
-        - (osversion_creation.json.objects is defined and (osversion_creation.json.objects | length > 0)) or
-          (osversion_query.json.objects is defined and (osversion_query.json.objects | length > 0))
+        osversion_id: "OSVersion::{{ (osversion_creation.json.objects | dict2items)[0].key }}"
+      when: osversion_creation.json.code == 0 and osversion_creation.json.objects | length > 0
 
-    - name: Échec si aucun osversion_id trouvé
-      fail:
-        msg: "Impossible de déterminer le osversion_id."
-      when: osversion_id is not defined
+    - name: Définir osversion_id depuis récupération
+      set_fact:
+        osversion_id: "OSVersion::{{ (osversion_query.json.objects | dict2items)[0].key }}"
+      when: osversion_id is not defined and osversion_query.json.objects | length > 0
 
-    ##########################
-    # Résumé final
-    ##########################
-    - name: Afficher les résultats
+    # --- Résultat final ---
+    - name: Afficher les IDs finaux
       debug:
         msg:
-          - "brand_id = {{ brand_id }}"
-          - "model_id = {{ model_id }}"
-          - "osfamily_id = {{ osfamily_id }}"
-          - "osversion_id = {{ osversion_id }}"
+          - "✅ brand_id = {{ brand_id }}"
+          - "✅ model_id = {{ model_id }}"
+          - "✅ osfamily_id = {{ osfamily_id }}"
+          - "✅ osversion_id = {{ osversion_id }}"
