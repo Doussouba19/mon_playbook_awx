@@ -1,5 +1,5 @@
 ---
-- name: Désinstallation complète SNMP (Exporter, snmpd, Prometheus, générateur)
+- name: Désinstallation complète SNMP (Exporter, snmpd)
   hosts:
     - grafana
     - itop
@@ -9,19 +9,11 @@
   vars:
     snmp_exporter_user: "snmp_exporter"
     snmp_exporter_install_dir: "/usr/local/snmp_exporter"
-    prometheus_config_path: "/etc/prometheus/prometheus.yml"
-    snmp_yml_dest: "/etc/snmp_exporter/snmp.yml"
-    generator_dir: "/opt/snmp_exporter_generator"
-    generator_packages:
-      - git
-      - make
-      - golang-go
-      - libsnmp-dev
-      - curl
 
   tasks:
-
-    # SECTION 1: Désinstallation du snmp_exporter
+    #####################################################################
+    ## SECTION 1: Désinstallation du snmp_exporter
+    #####################################################################
     - name: "[Exporter] Stopper et désactiver snmp_exporter"
       systemd:
         name: snmp_exporter
@@ -54,7 +46,9 @@
         remove: yes
       ignore_errors: yes
 
-    # SECTION 2: Désinstallation de snmpd (agent)
+    #####################################################################
+    ## SECTION 2: Désinstallation de snmpd (agent)
+    #####################################################################
     - name: "[SNMPD] Attendre la libération du verrou dpkg"
       shell: |
         while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
@@ -89,9 +83,14 @@
         - /var/lib/snmp
         - /var/log/snmpd.log
 
-- name: Nettoyage Prometheus sur Grafana
+#####################################################################
+# SECTION 3 : Nettoyage Prometheus sur Grafana
+#####################################################################
+- name: "Nettoyage Prometheus sur Grafana"
   hosts: grafana
   become: yes
+  vars:
+    prometheus_config_path: "/etc/prometheus/prometheus.yml"
   tasks:
     - name: "[Prometheus] Stopper Prometheus"
       systemd:
@@ -120,9 +119,21 @@
         enabled: yes
       ignore_errors: yes
 
-- name: Nettoyage du générateur SNMP sur Grafana
+#####################################################################
+# SECTION 4 : Nettoyage du générateur SNMP sur Grafana
+#####################################################################
+- name: "Nettoyage du générateur SNMP sur Grafana"
   hosts: grafana
   become: yes
+  vars:
+    snmp_yml_dest: "/etc/snmp_exporter/snmp.yml"
+    generator_dir: "/opt/snmp_exporter_generator"
+    generator_packages:
+      - git
+      - make
+      - golang-go
+      - libsnmp-dev
+      - curl
   tasks:
     - name: "[Générateur] Supprimer le fichier snmp.yml généré"
       file:
@@ -142,7 +153,10 @@
         autoremove: yes
       ignore_errors: yes
 
-- name: Vérification finale
+#####################################################################
+# SECTION 5 : Confirmation finale
+#####################################################################
+- name: "[Vérif] Affichage confirmation finale"
   hosts: all
   become: yes
   tasks:
