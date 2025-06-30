@@ -4,7 +4,6 @@
     - grafana
     - itop
     - semaphore
-    - prometheus
   become: yes
 
   vars:
@@ -21,6 +20,7 @@
       - curl
 
   tasks:
+
     #####################################################################
     ## SECTION 1: Désinstallation du snmp_exporter
     #####################################################################
@@ -59,6 +59,14 @@
     #####################################################################
     ## SECTION 2: Désinstallation de snmpd (agent)
     #####################################################################
+    - name: "[SNMPD] Attendre la libération du verrou dpkg"
+      shell: |
+        while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+          echo "🔒 En attente de la libération du verrou dpkg..."
+          sleep 3
+        done
+      changed_when: false
+
     - name: "[SNMPD] Stopper et désactiver snmpd"
       systemd:
         name: snmpd
@@ -86,59 +94,71 @@
         - /var/log/snmpd.log
 
     #####################################################################
-    ## SECTION 3: Nettoyage Prometheus (fichier prometheus.yml)
+    ## SECTION 3: Nettoyage Prometheus (uniquement sur grafana)
     #####################################################################
-    - name: "[Prometheus] Stopper Prometheus"
-      systemd:
-        name: prometheus
-        state: stopped
-      ignore_errors: yes
+  - name: "[Prometheus] Nettoyage de la configuration sur le serveur Grafana"
+    hosts: grafana
+    become: yes
+    tasks:
+      - name: "[Prometheus] Stopper Prometheus"
+        systemd:
+          name: prometheus
+          state: stopped
+        ignore_errors: yes
 
-    - name: "[Prometheus] Restaurer le prometheus.yml d’origine s’il existe"
-      copy:
-        src: "{{ prometheus_config_path }}.backup"
-        dest: "{{ prometheus_config_path }}"
-        remote_src: yes
-        mode: '0644'
-      ignore_errors: yes
+      - name: "[Prometheus] Restaurer le prometheus.yml d’origine s’il existe"
+        copy:
+          src: "{{ prometheus_config_path }}.backup"
+          dest: "{{ prometheus_config_path }}"
+          remote_src: yes
+          mode: '0644'
+        ignore_errors: yes
 
-    - name: "[Prometheus] Supprimer l’éventuelle sauvegarde restante"
-      file:
-        path: "{{ prometheus_config_path }}.backup"
-        state: absent
-      ignore_errors: yes
+      - name: "[Prometheus] Supprimer l’éventuelle sauvegarde restante"
+        file:
+          path: "{{ prometheus_config_path }}.backup"
+          state: absent
+        ignore_errors: yes
 
-    - name: "[Prometheus] Redémarrer Prometheus"
-      systemd:
-        name: prometheus
-        state: started
-        enabled: yes
-      ignore_errors: yes
+      - name: "[Prometheus] Redémarrer Prometheus"
+        systemd:
+          name: prometheus
+          state: started
+          enabled: yes
+        ignore_errors: yes
 
     #####################################################################
     ## SECTION 4: Nettoyage du générateur snmp.yml
     #####################################################################
-    - name: "[Générateur] Supprimer le fichier snmp.yml généré"
-      file:
-        path: "{{ snmp_yml_dest }}"
-        state: absent
+  - name: "[Générateur] Nettoyage du générateur snmp.yml"
+    hosts: grafana
+    become: yes
+    tasks:
+      - name: "[Générateur] Supprimer le fichier snmp.yml généré"
+        file:
+          path: "{{ snmp_yml_dest }}"
+          state: absent
 
-    - name: "[Générateur] Supprimer le dossier du générateur"
-      file:
-        path: "{{ generator_dir }}"
-        state: absent
+      - name: "[Générateur] Supprimer le dossier du générateur"
+        file:
+          path: "{{ generator_dir }}"
+          state: absent
 
-    - name: "[Générateur] Supprimer les paquets liés à la génération"
-      apt:
-        name: "{{ generator_packages }}"
-        state: absent
-        purge: yes
-        autoremove: yes
-      ignore_errors: yes
+      - name: "[Générateur] Supprimer les paquets liés à la génération"
+        apt:
+          name: "{{ generator_packages }}"
+          state: absent
+          purge: yes
+          autoremove: yes
+        ignore_errors: yes
 
     #####################################################################
     ## FIN : Confirmation
     #####################################################################
-    - name: "[Vérif] Afficher confirmation nettoyage complet"
-      debug:
-        msg: "✅ Tous les composants SNMP ont été supprimés proprement de la machine."
+  - name: "[Vérif] Affichage confirmation finale"
+    hosts: all
+    become: yes
+    tasks:
+      - name: "[Vérif] Afficher confirmation nettoyage complet"
+        debug:
+          msg: "✅ Tous les composants SNMP ont été supprimés proprement de la machine."
