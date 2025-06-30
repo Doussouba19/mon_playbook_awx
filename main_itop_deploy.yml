@@ -1,0 +1,3 @@
+---
+- import_playbook: init_itop_objects.yml
+- import_playbook: create_servers_itop.yml
