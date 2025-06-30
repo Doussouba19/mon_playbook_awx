@@ -200,15 +200,16 @@
             url: "{{ nginx_exporter_url }}"
             dest: "/tmp/nginx_exporter.tar.gz"
 
-        - name: Extract NGINX Exporter
+        - name: Extract NGINX Exporter with strip components
           unarchive:
             src: "/tmp/nginx_exporter.tar.gz"
             dest: "/tmp"
             remote_src: yes
+            extra_opts: [--strip-components=1]
 
-        - name: Move NGINX Exporter to /usr/local/bin
+        - name: Move NGINX Exporter binary to /usr/local/bin
           command:
-            cmd: mv /tmp/nginx-prometheus-exporter_{{ nginx_exporter_version }}_linux_amd64/nginx-prometheus-exporter /usr/local/bin/
+            cmd: mv /tmp/nginx-prometheus-exporter /usr/local/bin/
 
         - name: Make NGINX Exporter executable
           file:
