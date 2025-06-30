@@ -3,7 +3,7 @@
   hosts: all
   gather_facts: yes
   vars:
-    itop_url: "http://localhost/itop/webservices/rest.php"
+    itop_url: "http://10.0.57.36/itop/webservices/rest.php"
     itop_user: "admin"
     itop_password: "admin"
     default_org_id: "API Users"
