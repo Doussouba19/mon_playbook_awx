@@ -78,13 +78,6 @@
             state: started
             enabled: yes
 
-        - name: Open firewall for Node Exporter
-          firewalld:
-            service: node_exporter
-            permanent: yes
-            state: enabled
-            immediate: yes
-
       when: ansible_facts.services.node_exporter is not defined
 
     # Redis Exporter Installation
@@ -157,14 +150,6 @@
             name: redis_exporter
             state: started
             enabled: yes
-          when: redis_service_status.state == 'started'
-
-        - name: Open firewall for Redis Exporter
-          firewalld:
-            service: redis_exporter
-            permanent: yes
-            state: enabled
-            immediate: yes
           when: redis_service_status.state == 'started'
 
       when: redis_service_status.state == 'started'
@@ -241,14 +226,6 @@
             enabled: yes
           when: mysql_service_status.state == 'started'
 
-        - name: Open firewall for MySQL Exporter
-          firewalld:
-            service: mysqld_exporter
-            permanent: yes
-            state: enabled
-            immediate: yes
-          when: mysql_service_status.state == 'started'
-
       when: mysql_service_status.state == 'started'
 
     # NGINX Exporter Installation
@@ -322,11 +299,4 @@
             state: started
             enabled: yes
           when: nginx_service_status.state == 'started'
-
-        - name: Open firewall for NGINX Exporter
-          firewalld:
-            service: nginx_exporter
-            permanent: yes
-            state: enabled
-            immediate: yes
           when: nginx_service_status.state == 'started'
