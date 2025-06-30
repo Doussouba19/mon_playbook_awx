@@ -59,7 +59,7 @@
 
     - name: Copier dossier webservices (API REST) dans /var/www/html
       synchronize:
-        src: "{{ itop_extract_dir }}/webservices/"
+        src: "{{ itop_extract_dir }}/web/webservices/"
         dest: "{{ itop_web_dir }}/webservices/"
         rsync_opts:
           - "--chmod=Du=rwx,Dgo=rx,Fu=rw,Fgo=r"
