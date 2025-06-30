@@ -1,0 +1,82 @@
+---
+- name: Sauvegarder /var/www/html puis installer l'API REST iTop
+  hosts: itop
+  become: yes
+
+  vars:
+    itop_url: "https://github.com/Combodo/iTop/releases/download/3.2.1-1/iTop-3.2.1-1-16749.zip"
+    itop_zip_path: "/tmp/iTop-3.2.1.zip"
+    itop_extract_dir: "/tmp/itop_extract"
+    itop_web_dir: "/var/www/html"
+    backup_dir: "/tmp"
+    timestamp: "{{ lookup('pipe','date +%Y%m%d_%H%M%S') }}"
+    backup_file: "{{ backup_dir }}/html_backup_{{ timestamp }}.tar.gz"
+
+  tasks:
+    - name: Installer unzip et wget si manquants
+      apt:
+        name:
+          - unzip
+          - wget
+        state: present
+
+    - name: Sauvegarder le dossier /var/www/html
+      archive:
+        path: "{{ itop_web_dir }}"
+        dest: "{{ backup_file }}"
+        format: gz
+        remove: no
+
+    - name: Vérifier que la sauvegarde a été créée
+      stat:
+        path: "{{ backup_file }}"
+      register: backup_stat
+
+    - name: Afficher le résultat de la sauvegarde
+      debug:
+        msg: "Sauvegarde créée ici : {{ backup_file }}"
+      when: backup_stat.stat.exists
+
+    - name: Télécharger iTop
+      get_url:
+        url: "{{ itop_url }}"
+        dest: "{{ itop_zip_path }}"
+        mode: '0644'
+        force: yes
+
+    - name: Créer dossier temporaire extraction
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Décompresser iTop
+      unarchive:
+        src: "{{ itop_zip_path }}"
+        dest: "{{ itop_extract_dir }}"
+        remote_src: yes
+
+    - name: Copier dossier webservices (API REST) dans /var/www/html
+      copy:
+        src: "{{ itop_extract_dir }}/webservices/"
+        dest: "{{ itop_web_dir }}/webservices/"
+        remote_src: yes
+        owner: www-data
+        group: www-data
+        mode: '0755'
+        recurse: yes
+
+    - name: Redémarrer Apache
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Nettoyer dossier temporaire
+      file:
+        path: "{{ itop_extract_dir }}"
+        state: absent
+
+    - name: Supprimer archive temporaire
+      file:
+        path: "{{ itop_zip_path }}"
+        state: absent
