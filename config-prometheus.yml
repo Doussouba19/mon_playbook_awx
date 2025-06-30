@@ -1,6 +1,6 @@
 ---
 - name: Configure Prometheus server scrape targets
-  hosts: prometheus_server
+  hosts: grafana
   become: yes
   gather_facts: yes
 
