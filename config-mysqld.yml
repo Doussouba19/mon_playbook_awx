@@ -11,7 +11,7 @@
     cnf_path: /etc/.mysqld_exporter.cnf
 
   tasks:
-    - name: Vérifier si MySQL est installé (commande disponible)
+    - name: Vérifier si MySQL est installé
       command: which mysql
       register: mysql_check
       ignore_errors: yes
@@ -42,16 +42,16 @@
         state: absent
       when: mysql_check.rc == 0 and mysql_root_password is defined
 
-    - name: Créer le fichier .mysqld_exporter.cnf
+    - name: Créer le fichier .mysqld_exporter.cnf avec permissions strictes
       copy:
         dest: "{{ cnf_path }}"
         content: |
           [client]
           user={{ exporter_user }}
           password={{ exporter_password }}
-        owner: nobody
-        group: nogroup
-        mode: '0400'
+        owner: mysqld_exporter
+        group: mysqld_exporter
+        mode: '0600'
 
     - name: Créer le fichier systemd pour mysqld_exporter
       copy:
@@ -62,8 +62,8 @@
           After=network.target
 
           [Service]
-          User=nobody
-          Group=nogroup
+          User=mysqld_exporter
+          Group=mysqld_exporter
           ExecStart={{ exporter_bin }} \
             --web.listen-address=0.0.0.0:{{ exporter_port }} \
             --config.my-cnf={{ cnf_path }}
