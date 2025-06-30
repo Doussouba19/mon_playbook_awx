@@ -21,7 +21,6 @@
             name: "{{ ansible_hostname }}"
             org_id: "{{ org_id }}"
             status: "production"
-            os_family: "{{ ansible_os_family }}"
             os_version: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
             cpu: "{{ ansible_processor[1] | default('Unknown') }}"
             ram: "{{ ansible_memtotal_mb }}"
