@@ -1,5 +1,5 @@
 ---
-- name: Installation complète de mysqld_exporter avec config intégrée
+- name: Installation complète de mysqld_exporter avec configuration sécurisée
   hosts: all
   become: yes
 
@@ -8,7 +8,8 @@
     exporter_password: exporter_password
     exporter_port: 9104
     exporter_bin: /usr/local/bin/mysqld_exporter
-    cnf_path: /etc/.mysqld_exporter.cnf
+    exporter_config_dir: /etc/mysqld_exporter
+    exporter_config_file: /etc/mysqld_exporter/.mysqld_exporter.cnf
 
   tasks:
     - name: Vérifier si MySQL est installé
@@ -42,15 +43,23 @@
         state: absent
       when: mysql_check.rc == 0 and mysql_root_password is defined
 
+    - name: Créer le dossier de configuration mysqld_exporter
+      file:
+        path: "{{ exporter_config_dir }}"
+        state: directory
+        owner: "{{ exporter_user }}"
+        group: "{{ exporter_user }}"
+        mode: '0750'
+
     - name: Créer le fichier .mysqld_exporter.cnf avec permissions strictes
       copy:
-        dest: "{{ cnf_path }}"
+        dest: "{{ exporter_config_file }}"
         content: |
           [client]
           user={{ exporter_user }}
           password={{ exporter_password }}
-        owner: mysqld_exporter
-        group: mysqld_exporter
+        owner: "{{ exporter_user }}"
+        group: "{{ exporter_user }}"
         mode: '0600'
 
     - name: Créer le fichier systemd pour mysqld_exporter
@@ -62,11 +71,11 @@
           After=network.target
 
           [Service]
-          User=mysqld_exporter
-          Group=mysqld_exporter
+          User={{ exporter_user }}
+          Group={{ exporter_user }}
           ExecStart={{ exporter_bin }} \
             --web.listen-address=0.0.0.0:{{ exporter_port }} \
-            --config.my-cnf={{ cnf_path }}
+            --config.my-cnf={{ exporter_config_file }}
           Restart=on-failure
 
           [Install]
@@ -80,7 +89,7 @@
 
     - name: Afficher une erreur si le binaire est manquant
       fail:
-        msg: "Le binaire mysqld_exporter n'est pas installé sur ce serveur ({{ exporter_bin }})"
+        msg: "Le binaire mysqld_exporter est manquant sur {{ inventory_hostname }} ({{ exporter_bin }})"
       when: not exporter_check.stat.exists
 
     - name: Activer et démarrer mysqld_exporter
