@@ -15,11 +15,12 @@
 
   tasks:
     - name: Install required packages
-      yum:
+      apt:
         name:
           - wget
           - tar
         state: present
+        update_cache: yes
 
     # Node Exporter Installation
     - name: Install Node Exporter
@@ -329,5 +330,3 @@
             state: enabled
             immediate: yes
           when: nginx_service_status.state == 'started'
-
-      when: nginx_service_status.state == 'started'
