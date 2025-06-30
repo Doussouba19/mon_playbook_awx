@@ -1,5 +1,5 @@
 ---
-- name: Envoyer les serveurs vers iTop via API REST
+- name: Envoi complet des serveurs vers iTop via l’API REST
   hosts: itop_clients
   gather_facts: yes
 
@@ -8,181 +8,50 @@
     itop_user: "rest_user"
     itop_password: "RestUser@123"
     itop_version: "1.3"
-    org_id: 4  # ID de l'organisation API Users
-    brand_name: "Generic Brand"          # à personnaliser ou récupérer dynamiquement
-    model_name: "Generic Model"          # à personnaliser ou récupérer dynamiquement
+
+    # Valeurs fixes extraites du test manuel réussi
+    org_id: 4              # API Users
+    location_id: 3         # Paris
+    rack_id: 15            # Rack1
+    brand_id: 14           # IBM
+    model_id: 44           # DL380
+    osfamily_id: 24        # Ubuntu
+    osversion_id: 33       # 20.04 LTS
+
+    purchase_date: "2024-05-01"
+    move2production: "2024-06-01"
+    end_of_warranty: "2027-05-01"
 
   tasks:
-    - name: Vérifier si la famille OS existe
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/get",
-              "class": "OSFamily",
-              "key": "SELECT OSFamily WHERE name='{{ ansible_distribution }}'"
-            }
-        return_content: yes
-      register: osfamily_check
-
-    - name: Extraire l'ID de la famille OS si existante
-      set_fact:
-        osfamily_id: "{{ (osfamily_check.json.objects | dict2items)[0].key if osfamily_check.json.objects | length > 0 else None }}"
-
-    - name: Créer la famille OS si elle n'existe pas
-      when: osfamily_id is none
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/create",
-              "class": "OSFamily",
-              "fields": {
-                "name": "{{ ansible_distribution }}"
-              }
-            }
-        return_content: yes
-      register: osfamily_create
-
-    - name: Récupérer l'ID de la famille OS créée
-      when: osfamily_id is none
-      set_fact:
-        osfamily_id: "{{ (osfamily_create.json.objects | dict2items)[0].key }}"
-
-    - name: Vérifier si la marque existe
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/get",
-              "class": "Brand",
-              "key": "SELECT Brand WHERE name='{{ brand_name }}'"
-            }
-        return_content: yes
-      register: brand_check
-
-    - name: Extraire l'ID de la marque si existante
-      set_fact:
-        brand_id: "{{ (brand_check.json.objects | dict2items)[0].key if brand_check.json.objects | length > 0 else None }}"
-
-    - name: Créer la marque si elle n'existe pas
-      when: brand_id is none
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/create",
-              "class": "Brand",
-              "fields": {
-                "name": "{{ brand_name }}"
-              }
-            }
-        return_content: yes
-      register: brand_create
-
-    - name: Récupérer l'ID de la marque créée
-      when: brand_id is none
-      set_fact:
-        brand_id: "{{ (brand_create.json.objects | dict2items)[0].key }}"
-
-    - name: Vérifier si le modèle existe
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/get",
-              "class": "Model",
-              "key": "SELECT Model WHERE name='{{ model_name }}'"
-            }
-        return_content: yes
-      register: model_check
-
-    - name: Extraire l'ID du modèle si existant
-      set_fact:
-        model_id: "{{ (model_check.json.objects | dict2items)[0].key if model_check.json.objects | length > 0 else None }}"
-
-    - name: Créer le modèle si il n'existe pas
-      when: model_id is none
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/create",
-              "class": "Model",
-              "fields": {
-                "name": "{{ model_name }}",
-                "brand_id": "{{ brand_id }}"
-              }
-            }
-        return_content: yes
-      register: model_create
-
-    - name: Récupérer l'ID du modèle créé
-      when: model_id is none
-      set_fact:
-        model_id: "{{ (model_create.json.objects | dict2items)[0].key }}"
-
-    - name: Construire les données serveur pour iTop
+    - name: Construire les données serveur à envoyer
       set_fact:
         server_payload:
           version: "{{ itop_version }}"
           operation: "core/create"
           class: "Server"
-          comment: "Ajout automatique depuis Ansible"
+          comment: "Ajout automatique enrichi depuis Ansible"
           fields:
             name: "{{ ansible_hostname }}"
             org_id: "{{ org_id }}"
             status: "production"
-            description: "Serveur ajouté automatiquement depuis Ansible"
-            cpu: "{{ ansible_processor[1] | default('Unknown') }}"
-            ram: "{{ ansible_memtotal_mb | default('0') }}"
-            osfamily_id: "{{ osfamily_id }}"
+            business_criticity: "low"
+            location_id: "{{ location_id }}"
+            rack_id: "{{ rack_id }}"
             brand_id: "{{ brand_id }}"
             model_id: "{{ model_id }}"
+            osfamily_id: "{{ osfamily_id }}"
+            osversion_id: "{{ osversion_id }}"
+            cpu: "{{ ansible_processor[1] | default('Intel Xeon') }}"
+            ram: "{{ ansible_memtotal_mb | default('8192') }}"
+            nb_u: "2"
+            serialnumber: "SRV-{{ inventory_hostname }}"
+            asset_number: "AST-{{ inventory_hostname }}"
+            move2production: "{{ move2production }}"
+            purchase_date: "{{ purchase_date }}"
+            end_of_warranty: "{{ end_of_warranty }}"
+            description: "Créé automatiquement depuis Ansible avec données enrichies"
 
-    - name: Envoyer les données à iTop via API REST
+    - name: Envoyer les données du serveur vers iTop
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -198,40 +67,3 @@
     - name: Afficher la réponse d’iTop
       debug:
         var: itop_response.json
-
-    - name: Extraire l'ID du serveur créé
-      set_fact:
-        server_id: "{{ (itop_response.json.objects | dict2items)[0].key }}"
-
-    - name: Extraire interface réseau principale et IP
-      set_fact:
-        main_interface: "{{ ansible_default_ipv4.interface }}"
-        main_ip: "{{ ansible_default_ipv4.address }}"
-
-    - name: Créer interface réseau liée au serveur
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          json_data: >
-            {
-              "version": "{{ itop_version }}",
-              "operation": "core/create",
-              "class": "PhysicalInterface",
-              "fields": {
-                "name": "{{ main_interface }}",
-                "finalclass": "PhysicalInterface",
-                "ipaddress": "{{ main_ip }}",
-                "server_id": "{{ server_id }}"
-              }
-            }
-        return_content: yes
-      register: interface_response
-
-    - name: Afficher la réponse création interface
-      debug:
-        var: interface_response.json
