@@ -52,7 +52,7 @@
       notify:
         - Reload systemd
 
-    - name: S'assurer que le binaire mysqld_exporter est présent
+    - name: Vérifier la présence du binaire mysqld_exporter
       stat:
         path: "{{ exporter_bin }}"
       register: exporter_check
