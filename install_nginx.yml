@@ -14,13 +14,27 @@
         name: nginx
         state: present
 
-    - name: Démarrer et activer le service Nginx
+    - name: Modifier le port d'écoute de Nginx si hôte = 10.0.57.36
+      when: ansible_host == "10.0.57.36"
+      replace:
+        path: /etc/nginx/sites-available/default
+        regexp: 'listen 80 default_server;'
+        replace: 'listen 8080 default_server;'
+
+    - name: Modifier aussi la ligne IPv6 si hôte = 10.0.57.36
+      when: ansible_host == "10.0.57.36"
+      replace:
+        path: /etc/nginx/sites-available/default
+        regexp: 'listen \[::\]:80 default_server;'
+        replace: 'listen [::]:8080 default_server;'
+
+    - name: Redémarrer Nginx pour prendre en compte les changements
       systemd:
         name: nginx
-        state: started
+        state: restarted
         enabled: yes
 
-    - name: Vérifier que Nginx écoute sur le port 80
+    - name: Vérifier que Nginx écoute sur le bon port
       wait_for:
-        port: 80
+        port: "{{ '8080' if ansible_host == '10.0.57.36' else '80' }}"
         timeout: 10
