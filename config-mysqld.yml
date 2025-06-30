@@ -17,8 +17,6 @@
         CREATE USER IF NOT EXISTS '{{ exporter_user }}'@'localhost' IDENTIFIED BY '{{ exporter_password }}';
         GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ exporter_user }}'@'localhost';
         FLUSH PRIVILEGES;"
-      args:
-        warn: false
 
     - name: Créer le fichier .mysqld_exporter.cnf
       copy:
