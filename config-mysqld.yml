@@ -1,0 +1,74 @@
+---
+- name: Installation complète de mysqld_exporter avec config intégrée
+  hosts: all
+  become: yes
+
+  vars:
+    exporter_user: mysqld_exporter
+    exporter_password: exporter_password
+    exporter_port: 9104
+    exporter_bin: /usr/local/bin/mysqld_exporter
+    cnf_path: /etc/.mysqld_exporter.cnf
+
+  tasks:
+    - name: Créer l'utilisateur mysqld_exporter dans MySQL
+      shell: |
+        mysql -u root -e "
+        CREATE USER IF NOT EXISTS '{{ exporter_user }}'@'localhost' IDENTIFIED BY '{{ exporter_password }}';
+        GRANT PROCESS, REPLICATION CLIENT, SELECT ON *.* TO '{{ exporter_user }}'@'localhost';
+        FLUSH PRIVILEGES;"
+      args:
+        warn: false
+
+    - name: Créer le fichier .mysqld_exporter.cnf
+      copy:
+        dest: "{{ cnf_path }}"
+        content: |
+          [client]
+          user={{ exporter_user }}
+          password={{ exporter_password }}
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Créer le fichier systemd pour mysqld_exporter
+      copy:
+        dest: /etc/systemd/system/mysqld_exporter.service
+        content: |
+          [Unit]
+          Description=MySQL Exporter
+          After=network.target
+
+          [Service]
+          User=nobody
+          Group=nogroup
+          ExecStart={{ exporter_bin }} \
+            --web.listen-address=0.0.0.0:{{ exporter_port }} \
+            --config.my-cnf={{ cnf_path }}
+          Restart=on-failure
+
+          [Install]
+          WantedBy=multi-user.target
+      notify:
+        - Reload systemd
+
+    - name: S'assurer que le binaire mysqld_exporter est présent
+      stat:
+        path: "{{ exporter_bin }}"
+      register: exporter_check
+
+    - name: Afficher une erreur si le binaire est manquant
+      fail:
+        msg: "Le binaire mysqld_exporter n'est pas installé sur ce serveur ({{ exporter_bin }})"
+      when: not exporter_check.stat.exists
+
+    - name: Activer et démarrer mysqld_exporter
+      systemd:
+        name: mysqld_exporter
+        enabled: yes
+        state: restarted
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
