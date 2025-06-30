@@ -5,13 +5,13 @@
   vars:
     node_exporter_version: "1.8.2"
     redis_exporter_version: "v1.45.0"
-    mysql_exporter_version: "v0.14.0"
-    nginx_exporter_version: "v1.3.0"
+    mysql_exporter_version: " 0.17.2"
+    nginx_exporter_version: "1.4.2"
     
     node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
     redis_exporter_url: "https://github.com/oliver006/redis_exporter/releases/download/{{ redis_exporter_version }}/redis_exporter-{{ redis_exporter_version }}.linux-amd64.tar.gz"
-    mysqld_exporter_url: "https://github.com/prometheus/mysqld_exporter/releases/download/{{ mysql_exporter_version }}/mysqld_exporter-{{ mysql_exporter_version }}.linux-amd64.tar.gz"
-    nginx_exporter_url: "https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/{{ nginx_exporter_version }}/nginx-prometheus-exporter_{{ nginx_exporter_version }}_linux_amd64.tar.gz"
+    mysqld_exporter_url: "https://github.com/prometheus/mysqld_exporter/releases/download/v{{ mysql_exporter_version }}/mysqld_exporter-{{ mysql_exporter_version }}.linux-amd64.tar.gz"
+    nginx_exporter_url: "https://github.com/nginx/nginx-prometheus-exporter/releases/download/v{{ nginx_exporter_version }}/nginx-prometheus-exporter_{{ nginx_exporter_version }}_linux_amd64.tar.gz"
 
   tasks:
     - name: Install required packages
