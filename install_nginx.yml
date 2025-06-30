@@ -1,16 +1,26 @@
 ---
-- name: Installation de NGINX
-  hosts: itop
+- name: Installer et démarrer Nginx sur les serveurs
+  hosts: all
   become: yes
+
   tasks:
-    - name: Installer nginx
+    - name: Mettre à jour le cache des paquets apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Installer Nginx
       apt:
         name: nginx
         state: present
-        update_cache: yes
 
-    - name: Démarrer et activer nginx
-      service:
+    - name: Démarrer et activer le service Nginx
+      systemd:
         name: nginx
         state: started
         enabled: yes
+
+    - name: Vérifier que Nginx écoute sur le port 80
+      wait_for:
+        port: 80
+        timeout: 10
