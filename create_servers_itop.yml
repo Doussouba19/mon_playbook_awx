@@ -4,8 +4,8 @@
   gather_facts: yes
   vars:
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
-    itop_user: "admin"
-    itop_password: "admin"
+    itop_user: "rest-user"
+    itop_password: "RestUser@123 "
     default_org_id: "API Users"
     default_location_id: "Bamako"
     default_rack_id: "Rack1"
