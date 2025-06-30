@@ -1,63 +1,125 @@
 ---
-- name: Collecter les infos de tous les serveurs distants
+- name: Création serveur iTop avec collecte auto des infos
   hosts: all
   become: yes
   gather_facts: yes
-
-  tasks:
-    - name: Lire la marque du serveur
-      command: dmidecode -s system-manufacturer
-      register: manufacturer_output
-      changed_when: false
-      failed_when: false
-
-    - name: Lire le modèle du serveur
-      command: dmidecode -s system-product-name
-      register: model_output
-      changed_when: false
-      failed_when: false
-
-    - name: Enregistrer les infos localement
-      set_fact:
-        server_data: {
-          "name": "{{ inventory_hostname }}",
-          "org_id": "4",
-          "status": "production",
-          "business_criticity": "low",
-          "location_id": "3",
-          "rack_id": "15",
-          "brand_name": "{{ manufacturer_output.stdout | default('Unknown') }}",
-          "model_name": "{{ model_output.stdout | default('Unknown') }}",
-          "osfamily_name": "Ubuntu",
-          "osversion_name": "20.04 LTS",
-          "cpu": "{{ ansible_processor[1] | default('Unknown') }}",
-          "ram": "{{ ansible_memtotal_mb | default('0') }}",
-          "nb_u": "2",
-          "serialnumber": "SRV-{{ ansible_default_ipv4.address }}",
-          "asset_number": "AST-{{ ansible_default_ipv4.address }}",
-          "move2production": "{{ lookup('pipe', 'date +%Y-%m-%d') }}",
-          "purchase_date": "{{ lookup('pipe', 'date +%Y-%m-%d') }}",
-          "end_of_warranty": "{{ lookup('pipe', 'date -d "+3 years" +%Y-%m-%d') }}",
-          "description": "Créé automatiquement (version centralisée)"
-        }
-
-    - name: Sauvegarder les données globales
-      add_host:
-        name: localhost
-        groups: collected_data
-        server_data: "{{ server_data }}"
-
-- name: Envoi dans iTop depuis le contrôleur
-  hosts: collected_data
-  gather_facts: no
 
   vars:
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
     itop_user: "rest_user"
     itop_password: "RestUser@123"
+    default_org_id: "4"         # API Users
+    default_location_id: "3"    # Paris
+    default_rack_id: "15"       # Rack1
+    default_model_name: "DL380"
+    default_osfamily_name: "Ubuntu"
+    default_osversion_name: "20.04 LTS"
 
   tasks:
-    - name: Créer le serveur dans iTop via API REST
+
+    - name: Récupérer la marque du serveur
+      command: dmidecode -s system-manufacturer
+      register: manufacturer_output
+      changed_when: false
+      failed_when: manufacturer_output.rc != 0 and manufacturer_output.rc != 1
+
+    - name: Récupérer le modèle du serveur
+      command: dmidecode -s system-product-name
+      register: model_output
+      changed_when: false
+      failed_when: model_output.rc != 0 and model_output.rc != 1
+
+    - name: Définir les variables dynamiques
+      set_fact:
+        brand_name: "{{ manufacturer_output.stdout | default('IBM') }}"
+        model_name: "{{ model_output.stdout | default(default_model_name) }}"
+        osfamily_name: "{{ ansible_distribution | default(default_osfamily_name) }}"
+        osversion_name: "{{ ansible_distribution_version | default(default_osversion_name) }}"
+        move2production: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
+        purchase_date: "{{ lookup('pipe', 'date +%Y-%m-%d') }}"
+        end_of_warranty: "{{ lookup('pipe', 'date -d \"+3 years\" +%Y-%m-%d') }}"
+
+    - name: Obtenir l'ID de la marque dans iTop
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "version": "1.3",
+                "operation": "core/get",
+                "class": "Brand",
+                "key": "SELECT Brand WHERE name='{{ brand_name }}'"
+              } | to_json
+            }}
+      register: brand_response
+
+    - name: Obtenir l'ID du modèle dans iTop
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "version": "1.3",
+                "operation": "core/get",
+                "class": "Model",
+                "key": "SELECT Model WHERE name='{{ model_name }}'"
+              } | to_json
+            }}
+      register: model_response
+
+    - name: Obtenir l'ID de la famille OS dans iTop
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "version": "1.3",
+                "operation": "core/get",
+                "class": "OSFamily",
+                "key": "SELECT OSFamily WHERE name='{{ osfamily_name }}'"
+              } | to_json
+            }}
+      register: osfamily_response
+
+    - name: Obtenir l'ID de la version OS dans iTop
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: form-urlencoded
+        body:
+          json_data: >
+            {{
+              {
+                "version": "1.3",
+                "operation": "core/get",
+                "class": "OSVersion",
+                "key": "SELECT OSVersion WHERE name='{{ osversion_name }}'"
+              } | to_json
+            }}
+      register: osversion_response
+
+    - name: Envoi du serveur dans iTop
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -72,13 +134,32 @@
                 "version": "1.3",
                 "operation": "core/create",
                 "class": "Server",
-                "comment": "Ajout via playbook centralisé",
-                "fields": server_data
+                "comment": "Créé automatiquement depuis Ansible",
+                "fields": {
+                  "name": inventory_hostname,
+                  "org_id": default_org_id,
+                  "status": "production",
+                  "business_criticity": "low",
+                  "location_id": default_location_id,
+                  "rack_id": default_rack_id,
+                  "brand_id": (brand_response.json.objects | dict2items)[0].value.key,
+                  "model_id": (model_response.json.objects | dict2items)[0].value.key,
+                  "osfamily_id": (osfamily_response.json.objects | dict2items)[0].value.key,
+                  "osversion_id": (osversion_response.json.objects | dict2items)[0].value.key,
+                  "cpu": "{{ ansible_processor[1] | default('Unknown') }}",
+                  "ram": "{{ ansible_memtotal_mb | default('0') }}",
+                  "nb_u": "2",
+                  "serialnumber": "SRV-{{ ansible_default_ipv4.address }}",
+                  "asset_number": "AST-{{ ansible_default_ipv4.address }}",
+                  "move2production": "{{ move2production }}",
+                  "purchase_date": "{{ purchase_date }}",
+                  "end_of_warranty": "{{ end_of_warranty }}",
+                  "description": "Créé automatiquement depuis Ansible avec détection auto des infos"
+                }
               } | to_json
             }}
-        status_code: 200
-      delegate_to: localhost
+      register: itop_response
 
-    - name: Afficher la réponse
+    - name: Afficher la réponse de l’API iTop
       debug:
-        var: server_data
+        var: itop_response.json
