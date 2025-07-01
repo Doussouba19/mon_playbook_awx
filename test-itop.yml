@@ -238,47 +238,44 @@
         force_basic_auth: yes
         headers:
           Content-Type: "application/json"
-        body:
-          operation: core/create
-          version: "{{ itop_version }}"
-          class: Server
-          comment: "Créé automatiquement via Ansible"
-          fields:
-            name: "{{ server_name }}"
-            organisation: "{{ organisation }}"
-            status: "{{ status }}"
-            criticity: "{{ criticity }}"
-            location_id: "{{ site_id }}"
-            rack: "Default Rack"
-            chassis: "Default Chassis"
-            brand: "{{ brand }}"
-            model: "{{ model }}"
-            osfamily_id: "{{ osfamily_id }}"
-            osversion_id: "{{ osversion_id }}"
-            ip: "{{ server_ip }}"
-            oslicense: "Open Source"
-            cpu: "{{ cpu }}"
-            ram: "{{ ram }}"
-            nbunite: "{{ nb_unite }}"
-            serialnumber: "{{ serial_number }}"
-            assetnumber: "{{ asset_number }}"
-            production_date: "{{ production_date }}"
-            purchase_date: "{{ purchase_date }}"
-            warranty_end_date: "{{ warranty_end_date }}"
-            powersupply: "{{ power_supply }}"
-            powersourcea: "{{ power_source_a }}"
-            powersourceb: "{{ power_source_b }}"
-            redundancy: "{{ redundancy }}"
-            description: "{{ server_name }} - {{ site_name }}"
+        body: |  # Format YAML multi-ligne
+          {
+            "operation": "core/create",
+            "version": "{{ itop_version }}",
+            "class": "Server",
+            "comment": "Créé automatiquement via Ansible",
+            "fields": {
+              "name": "{{ server_name }}",
+              "organisation": "{{ organisation }}",
+              "status": "{{ status }}",
+              "criticity": "{{ criticity }}",
+              "location_id": "{{ site_id }}",
+              "rack": "Default Rack",
+              "chassis": "Default Chassis",
+              "brand": "{{ brand }}",
+              "model": "{{ model }}",
+              "osfamily_id": "{{ osfamily_id }}",
+              "osversion_id": "{{ osversion_id }}",
+              "ip": "{{ server_ip }}",
+              "oslicense": "Open Source",
+              "cpu": "{{ cpu }}",
+              "ram": "{{ ram }}",
+              "nbunite": "{{ nb_unite }}",
+              "serialnumber": "{{ serial_number }}",
+              "assetnumber": "{{ asset_number }}",
+              "production_date": "{{ production_date }}",
+              "purchase_date": "{{ purchase_date }}",
+              "warranty_end_date": "{{ warranty_end_date }}",
+              "powersupply": "{{ power_supply }}",
+              "powersourcea": "{{ power_source_a }}",
+              "powersourceb": "{{ power_source_b }}",
+              "redundancy": "{{ redundancy }}",
+              "description": "{{ server_name }} - {{ site_name }}"
+            }
+          }
         body_format: json
         return_content: yes
       register: server_create
-
-    # --- Debug de la réponse API ---
-    - name: Afficher la réponse brute de l'API
-      debug:
-        var: server_create.content
-      when: server_create.content is defined
 
     # --- Gestion robuste de l'extraction d'ID ---
     - name: Extraire l'ID du serveur créé
