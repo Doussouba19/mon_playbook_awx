@@ -106,9 +106,9 @@
       register: osfamily_create
 
     - name: Set osfamily_id après création
-      when: osfamily_id == '' and osfamily_create is defined and osfamily_create.json.objects is defined
+      when: osfamily_id == '' and osfamily_create.json is defined
       set_fact:
-        osfamily_id: "{{ (osfamily_create.json.objects | dict2items | first).value.key }}"
+        osfamily_id: "{{ osfamily_create.json.objects | dict2items | first | json_query('value.key') }}"
 
     # --- Recherche OSVersion ---
     - name: Chercher OSVersion dans iTop via filtre
@@ -164,9 +164,9 @@
       register: osversion_create
 
     - name: Set osversion_id après création
-      when: osversion_id == '' and osversion_create is defined and osversion_create.json.objects is defined
+      when: osversion_id == '' and osversion_create.json is defined
       set_fact:
-        osversion_id: "{{ (osversion_create.json.objects | dict2items | first).value.key }}"
+        osversion_id: "{{ osversion_create.json.objects | dict2items | first | json_query('value.key') }}"
 
     # --- Recherche Site (Location) ---
     - name: Chercher site dans iTop via filtre
@@ -221,9 +221,9 @@
       register: site_create
 
     - name: Set site_id après création
-      when: site_id == '' and site_create is defined and site_create.json.objects is defined
+      when: site_id == '' and site_create.json is defined
       set_fact:
-        site_id: "{{ (site_create.json.objects | dict2items | first).value.key }}"
+        site_id: "{{ site_create.json.objects | dict2items | first | json_query('value.key') }}"
 
     # --- Création serveur ---
     - name: Créer le serveur dans iTop
@@ -271,12 +271,10 @@
         return_content: yes
       register: server_create
 
+    - name: Extraire l'ID du serveur créé
+      set_fact:
+        server_id: "{{ server_create.json.objects | dict2items | first | json_query('value.key') }}"
+
     - name: Afficher confirmation création serveur
       debug:
-        msg: >-
-          Serveur {{ server_name }} créé dans iTop avec ID {{
-            (server_create.json.objects | dict2items | first).value.key
-            if (server_create.json.objects is defined and
-                (server_create.json.objects | length) > 0)
-            else 'ID non trouvé'
-          }}
+        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id | default('ID non trouvé') }}"
