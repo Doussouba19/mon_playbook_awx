@@ -13,6 +13,7 @@
     - name: Générer les données serveur à envoyer
       set_fact:
         server_data:
+          version: "1.3" 
           operation: "core/create"
           comment: "Création d’un serveur depuis Ansible"
           class: "Server"
