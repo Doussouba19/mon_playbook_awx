@@ -5,7 +5,7 @@
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
     itop_user: "rest_user"
     itop_password: "RestUser@123"
-    itop_version: "1.3"
+    itop_version: "1.0"
 
   tasks:
     - name: Extraire infos serveur via facts - partie 1
@@ -64,6 +64,7 @@
           Content-Type: "application/json"
         body:
           operation: core/get
+          version: "{{ itop_version }}"
           class: OSFamily
           key: ""
           filters:
@@ -82,8 +83,9 @@
         osfamily_id: >-
           {{
             (osfamily_search.json.objects | dict2items | first).value.id
-            if osfamily_search.json.objects is defined and
-               (osfamily_search.json.objects | length) > 0 else ''
+            if (osfamily_search.json.objects is defined and
+                (osfamily_search.json.objects | length) > 0)
+            else ''
           }}
 
     - name: Créer OSFamily si absent
@@ -98,6 +100,7 @@
           Content-Type: "application/json"
         body:
           operation: core/create
+          version: "{{ itop_version }}"
           class: OSFamily
           comment: Créé automatiquement via Ansible
           fields:
@@ -109,7 +112,13 @@
     - name: Set osfamily_id après création
       when: osfamily_id == ''
       set_fact:
-        osfamily_id: "{{ osfamily_create.json.id }}"
+        osfamily_id: >-
+          {{
+            (osfamily_create.json.objects | dict2items | first).value.id
+            if (osfamily_create.json.objects is defined and
+                (osfamily_create.json.objects | length) > 0)
+            else ''
+          }}
 
     # --- Recherche OSVersion ---
     - name: Chercher OSVersion dans iTop via filtre
@@ -123,6 +132,7 @@
           Content-Type: "application/json"
         body:
           operation: core/get
+          version: "{{ itop_version }}"
           class: OSVersion
           key: ""
           filters:
@@ -141,8 +151,9 @@
         osversion_id: >-
           {{
             (osversion_search.json.objects | dict2items | first).value.id
-            if osversion_search.json.objects is defined and
-               (osversion_search.json.objects | length) > 0 else ''
+            if (osversion_search.json.objects is defined and
+                (osversion_search.json.objects | length) > 0)
+            else ''
           }}
 
     - name: Créer OSVersion si absent
@@ -157,6 +168,7 @@
           Content-Type: "application/json"
         body:
           operation: core/create
+          version: "{{ itop_version }}"
           class: OSVersion
           comment: Créé automatiquement via Ansible
           fields:
@@ -169,7 +181,13 @@
     - name: Set osversion_id après création
       when: osversion_id == ''
       set_fact:
-        osversion_id: "{{ osversion_create.json.id }}"
+        osversion_id: >-
+          {{
+            (osversion_create.json.objects | dict2items | first).value.id
+            if (osversion_create.json.objects is defined and
+                (osversion_create.json.objects | length) > 0)
+            else ''
+          }}
 
     # --- Recherche Site (Location) ---
     - name: Chercher site dans iTop via filtre
@@ -183,6 +201,7 @@
           Content-Type: "application/json"
         body:
           operation: core/get
+          version: "{{ itop_version }}"
           class: Location
           key: ""
           filters:
@@ -201,8 +220,9 @@
         site_id: >-
           {{
             (site_search.json.objects | dict2items | first).value.id
-            if site_search.json.objects is defined and
-               (site_search.json.objects | length) > 0 else ''
+            if (site_search.json.objects is defined and
+                (site_search.json.objects | length) > 0)
+            else ''
           }}
 
     - name: Créer site si absent
@@ -217,6 +237,7 @@
           Content-Type: "application/json"
         body:
           operation: core/create
+          version: "{{ itop_version }}"
           class: Location
           comment: Créé automatiquement via Ansible
           fields:
@@ -228,7 +249,13 @@
     - name: Set site_id après création
       when: site_id == ''
       set_fact:
-        site_id: "{{ site_create.json.id }}"
+        site_id: >-
+          {{
+            (site_create.json.objects | dict2items | first).value.id
+            if (site_create.json.objects is defined and
+                (site_create.json.objects | length) > 0)
+            else ''
+          }}
 
     # --- Création serveur ---
     - name: Créer le serveur dans iTop
@@ -242,6 +269,7 @@
           Content-Type: "application/json"
         body:
           operation: core/create
+          version: "{{ itop_version }}"
           class: Server
           comment: Créé automatiquement via Ansible
           fields:
