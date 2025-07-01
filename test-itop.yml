@@ -226,6 +226,9 @@
         site_id: "{{ site_create.json.objects | dict2items | first | json_query('value.key') }}"
 
     # --- Création serveur ---
+
+
+
     - name: Créer le serveur dans iTop
       uri:
         url: "{{ itop_url }}"
@@ -271,12 +274,24 @@
         return_content: yes
       register: server_create
 
+    # --- Debug de la réponse API ---
+    - name: Afficher la réponse brute de l'API
+      debug:
+        var: server_create.content
+      when: server_create.content is defined
+
     # --- Gestion robuste de l'extraction d'ID ---
     - name: Extraire l'ID du serveur créé
       set_fact:
         server_id: >-
-          {% if server_create is defined and server_create.json is defined and server_create.json.objects is defined %}
-            {{ (server_create.json.objects | dict2items | first).value.key | default('ID non trouvé') }}
+          {% if server_create is defined and server_create.json is defined %}
+            {% if server_create.json.objects is defined %}
+              {{ (server_create.json.objects | dict2items | first).value.key | default('ID non trouvé dans objects') }}
+            {% elif server_create.json.code is defined %}
+              Erreur {{ server_create.json.code }}: {{ server_create.json.message | default('Erreur inconnue') }}
+            {% else %}
+              Structure de réponse inconnue
+            {% endif %}
           {% else %}
             'Erreur: réponse API invalide'
           {% endif %}
@@ -284,3 +299,4 @@
     - name: Afficher confirmation création serveur
       debug:
         msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id }}"
+    
