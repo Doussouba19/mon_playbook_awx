@@ -48,28 +48,13 @@
         site_name: >-
           {% if server_ip.startswith('10.0.57.') %}
             Bamako
+          {% elif server_ip == '10.0.57.36' %}
+            Lomé
+          {% elif server_ip == '10.0.57.35' %}
+            Libreville
           {% else %}
             Inconnu
           {% endif %}
-
-    # --- Fonction utilitaire pour extraction ID ---
-    - name: Extraire ID depuis réponse JSON iTop
-      vars:
-        response: "{{ item.response }}"
-      set_fact:
-        "{{ item.fact_name }}": >-
-          {{
-            (response.json.objects | dict2items | first).value.id
-            if (response.json.objects is defined and
-                (response.json.objects | length) > 0)
-            else ''
-          }}
-      loop:
-        - { response: "{{ osfamily_search }}", fact_name: "osfamily_id" }
-        - { response: "{{ osversion_search }}", fact_name: "osversion_id" }
-        - { response: "{{ site_search }}", fact_name: "site_id" }
-      loop_control:
-        label: "{{ item.fact_name }}"
 
     # --- Recherche OSFamily ---
     - name: Chercher OSFamily dans iTop via filtre
@@ -92,6 +77,16 @@
         body_format: json
         return_content: yes
       register: osfamily_search
+
+    - name: Extraire osfamily_id
+      set_fact:
+        osfamily_id: >-
+          {{
+            (osfamily_search.json.objects | dict2items | first).value.id
+            if (osfamily_search.json.objects is defined and
+                (osfamily_search.json.objects | length) > 0)
+            else ''
+          }}
 
     - name: Créer OSFamily si absent
       when: osfamily_id == ''
@@ -147,6 +142,16 @@
         return_content: yes
       register: osversion_search
 
+    - name: Extraire osversion_id
+      set_fact:
+        osversion_id: >-
+          {{
+            (osversion_search.json.objects | dict2items | first).value.id
+            if (osversion_search.json.objects is defined and
+                (osversion_search.json.objects | length) > 0)
+            else ''
+          }}
+
     - name: Créer OSVersion si absent
       when: osversion_id == ''
       uri:
@@ -201,6 +206,16 @@
         body_format: json
         return_content: yes
       register: site_search
+
+    - name: Extraire site_id
+      set_fact:
+        site_id: >-
+          {{
+            (site_search.json.objects | dict2items | first).value.id
+            if (site_search.json.objects is defined and
+                (site_search.json.objects | length) > 0)
+            else ''
+          }}
 
     - name: Créer site si absent
       when: site_id == ''
@@ -280,22 +295,12 @@
         return_content: yes
       register: server_create
 
-    - name: Extraire ID serveur créé
-      set_fact:
-        created_server_id: >-
-          {{
-            (server_create.json.objects | dict2items | first).value.id
-            if (server_create.json.objects is defined and
-                (server_create.json.objects | length) > 0)
-            else ''
-          }}
-
     - name: Afficher confirmation création serveur
       debug:
         msg: >-
-          {% if created_server_id != '' %}
-            Serveur {{ server_name }} créé dans iTop avec ID {{ created_server_id }}
-          {% else %}
-            Serveur {{ server_name }} créé dans iTop mais ID non trouvé.
-            Réponse complète : {{ server_create.json }}
-          {% endif %}
+          Serveur {{ server_name }} créé dans iTop avec ID {{
+            (server_create.json.objects | dict2items | first).value.id
+            if (server_create.json.objects is defined and
+                (server_create.json.objects | length) > 0)
+            else 'ID non trouvé'
+          }}
