@@ -2,6 +2,14 @@
 - name: "Initialiser les objets iTop à partir des faits système"
   hosts: all
   gather_facts: true
+  vars:
+    itop_url: "http://10.0.57.36/web/webservices/rest.php"
+    itop_user: "rest_user"
+    itop_password: "RestUser@123"
+    default_org_id: "4"          # API Users
+    default_location_id: "3"     # Bamako
+    itop_auth: "{{ (itop_user + ':' + itop_password) | b64encode }}"
+    
   tasks:
 
     - name: "Déduire les infos système"
