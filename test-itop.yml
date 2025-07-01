@@ -302,7 +302,12 @@
         body_format: json
         return_content: yes
       register: server_create
-
     - name: Afficher confirmation création serveur
-      debug:
-        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_create.json.id }}"
+  debug:
+    msg: >-
+      Serveur {{ server_name }} créé dans iTop avec ID {{
+        (server_create.json.objects | dict2items | first).value.id
+        if (server_create.json.objects is defined and (server_create.json.objects | length) > 0)
+        else 'ID non trouvé'
+      }}
+
