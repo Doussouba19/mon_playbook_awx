@@ -74,10 +74,6 @@
         return_content: yes
       register: osfamily_search
 
-    - name: Debug réponse OSFamily
-      debug:
-        var: osfamily_search.json
-
     - name: Extraire osfamily_id
       set_fact:
         osfamily_id: >-
@@ -141,10 +137,6 @@
         body_format: json
         return_content: yes
       register: osversion_search
-
-    - name: Debug réponse OSVersion
-      debug:
-        var: osversion_search.json
 
     - name: Extraire osversion_id
       set_fact:
@@ -210,10 +202,6 @@
         body_format: json
         return_content: yes
       register: site_search
-
-    - name: Debug réponse Site
-      debug:
-        var: site_search.json
 
     - name: Extraire site_id
       set_fact:
@@ -302,12 +290,13 @@
         body_format: json
         return_content: yes
       register: server_create
-    - name: Afficher confirmation création serveur
-  debug:
-    msg: >-
-      Serveur {{ server_name }} créé dans iTop avec ID {{
-        (server_create.json.objects | dict2items | first).value.id
-        if (server_create.json.objects is defined and (server_create.json.objects | length) > 0)
-        else 'ID non trouvé'
-      }}
 
+    - name: Afficher confirmation création serveur
+      debug:
+        msg: >-
+          Serveur {{ server_name }} créé dans iTop avec ID {{
+            (server_create.json.objects | dict2items | first).value.id
+            if (server_create.json.objects is defined and
+                (server_create.json.objects | length) > 0)
+            else 'ID non trouvé'
+          }}
