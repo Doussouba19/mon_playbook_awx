@@ -10,32 +10,33 @@
     default_location_id: "3"    # Bamako
 
   tasks:
-    - name: Envoi à iTop via l’API REST
+    - name: Construire les données serveur pour iTop
+      set_fact:
+        server_payload:
+          version: "1.3"
+          operation: "core/create"
+          class: "Server"
+          comment: "Création d’un serveur depuis Ansible"
+          fields:
+            name: "{{ ansible_hostname }}"
+            org_id: "{{ default_org_id }}"
+            location_id: "{{ default_location_id }}"
+            cpu: "{{ ansible_processor[1] | default('N/A') }}"
+            ram: "{{ ansible_memtotal_mb | default('0') }} MB"
+            description: "Créé automatiquement par Ansible"
+
+    - name: Envoyer les données à iTop via API REST
       uri:
         url: "{{ itop_url }}"
         method: POST
         user: "{{ itop_user }}"
         password: "{{ itop_password }}"
         force_basic_auth: yes
-        body_format: json
+        body_format: form-urlencoded
+        body:
+          version: "1.3"
+          json_data: "{{ server_payload | to_json }}"
         return_content: yes
-        body: >
-          {
-            "version": "1.3",
-            "operation": "core/create",
-            "class": "Server",
-            "comment": "Création d’un serveur depuis Ansible",
-            "fields": {
-              "name": "{{ ansible_hostname }}",
-              "org_id": "{{ default_org_id }}",
-              "location_id": "{{ default_location_id }}",
-              "cpu": "{{ ansible_processor[1] | default('N/A') }}",
-              "ram": "{{ ansible_memtotal_mb | default('0') }} MB",
-              "osfamily": "{{ ansible_os_family }}",
-              "osversion": "{{ ansible_distribution }} {{ ansible_distribution_version }}",
-              "description": "Créé automatiquement par Ansible"
-            }
-          }
       register: itop_response
 
     - name: Afficher la réponse de l'API
