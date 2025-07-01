@@ -1,5 +1,5 @@
 - name: Enregistrer automatiquement les serveurs dans iTop via API REST
-  hosts: all
+  hosts: servers
   gather_facts: yes
   vars:
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
@@ -8,7 +8,7 @@
     itop_version: "1.3"
 
   tasks:
-    - name: Extraire infos serveur via facts
+    - name: Extraire infos serveur via facts - partie 1
       set_fact:
         server_ip: "{{ ansible_default_ipv4.address }}"
         os_family_name: "{{ ansible_facts['os_family'] | default('non défini') }}"
@@ -17,10 +17,9 @@
         brand: "{{ ansible_facts['ansible_system_vendor'] | default('non défini') }}"
         model: "{{ ansible_facts['ansible_product_name'] | default('non défini') }}"
         serial_number: "{{ ansible_facts['ansible_serial_number'] | default('non défini') }}"
-        asset_number: "{{ ansible_date_time.date }}-{{ brand | replace(' ', '') }}"
         production_date: "{{ ansible_date_time.date }}"
         purchase_date: "non défini"
-        warranty_end_date: "{{ ansible_date_time.date }}"  # A adapter selon ta politique
+        warranty_end_date: "{{ ansible_date_time.date }}"
         cpu: "{{ (ansible_facts['processor'][0] if ansible_facts['processor'] is defined else 'non défini') }}"
         ram: "{{ (ansible_facts['memtotal_mb'] | default(0)) | string }} MB"
         nb_unite: "non défini"
@@ -31,7 +30,7 @@
         organisation: "API Users"
         status: "Production"
         criticity: >-
-          {% set cpu_load = 20 %}  # À remplacer par vrai load CPU si dispo
+          {% set cpu_load = 20 %}
           {% if cpu_load < 40 %}
             basse
           {% elif cpu_load < 70 %}
@@ -39,7 +38,11 @@
           {% else %}
             critique
           {% endif %}
-    
+
+    - name: Extraire infos serveur via facts - partie 2 (asset_number)
+      set_fact:
+        asset_number: "{{ ansible_date_time.date }}-{{ brand | replace(' ', '') }}"
+
     - name: Déduire site en fonction IP
       set_fact:
         site_name: >-
@@ -48,6 +51,8 @@
           {% else %}
             Inconnu
           {% endif %}
+
+
 
     # --- Recherche/création OSFamily ---
     - name: Chercher OSFamily dans iTop
