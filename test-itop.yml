@@ -271,10 +271,16 @@
         return_content: yes
       register: server_create
 
+    # --- Gestion robuste de l'extraction d'ID ---
     - name: Extraire l'ID du serveur créé
       set_fact:
-        server_id: "{{ server_create.json.objects | dict2items | first | json_query('value.key') }}"
+        server_id: >-
+          {% if server_create is defined and server_create.json is defined and server_create.json.objects is defined %}
+            {{ (server_create.json.objects | dict2items | first).value.key | default('ID non trouvé') }}
+          {% else %}
+            'Erreur: réponse API invalide'
+          {% endif %}
 
     - name: Afficher confirmation création serveur
       debug:
-        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id | default('ID non trouvé') }}"
+        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id }}"
