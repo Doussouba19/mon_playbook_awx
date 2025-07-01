@@ -1,153 +1,94 @@
-- name: Initialiser les objets iTop à partir des faits système
+---
+- name: "Initialiser les objets iTop à partir des faits système"
   hosts: all
-  gather_facts: yes
-  vars:
-    itop_url: "http://10.0.57.36/web/webservices/rest.php"
-    itop_user: "rest_user"
-    itop_password: "RestUser@123"
-
+  gather_facts: true
   tasks:
-    - name: Déduire les infos système
-      set_fact:
-        brand_name: "{{ ansible_product_name.split()[0] | default('HP') }}"
-        model_name: "{{ ansible_product_name | default('HP ProLiant') }}"
-        os_family: "{{ ansible_os_family | default('Linux') }}"
-        os_version: "{{ ansible_distribution_version | default('24.04') }}"
 
-    ##########################
-    # Création / récupération Brand
-    ##########################
-    - name: Créer la marque (Brand)
+    - name: "Déduire les infos système"
+      set_fact:
+        brand_name: "{{ ansible_hostname | regex_replace('^(.*?)-.*$', '\\1') }}"
+        server_name: "{{ ansible_hostname }}"
+        model_name: "{{ ansible_product_name | default('unknown') }}"
+        os_name: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+        org_name: "MyOrganization"
+
+    - name: "Créer la marque (Brand)"
       uri:
-        url: "{{ itop_url }}"
+        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
         method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
+        body_format: json
+        headers:
+          Authorization: "Basic {{ itop_auth }}"
         body:
-          json_data: >
-            {{
-              {
-                "operation": "core/create",
-                "class": "Brand",
-                "comment": "Créé automatiquement",
-                "fields": { "name": brand_name }
-              } | to_json
-            }}
-      register: brand_creation
+          operation: core/create
+          class: Brand
+          comment: "Création de la marque si elle n'existe pas"
+          fields:
+            name: "{{ brand_name }}"
+      register: brand_create
       failed_when: false
 
-    - name: Récupérer la marque (Brand) si création échouée (existe déjà)
+    - name: "Récupérer la marque (Brand) si création échouée"
+      when: brand_create.json.objects is not defined
       uri:
-        url: "{{ itop_url }}"
+        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
         method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
+        body_format: json
+        headers:
+          Authorization: "Basic {{ itop_auth }}"
         body:
-          version: "1.3"
-          json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "Brand",
-                "key": "SELECT Brand WHERE name='{{ brand_name }}'",
-                "version": "1.3"
-              } | to_json
-            }}
-      when: brand_creation.json.code != 0
+          operation: core/get
+          class: Brand
+          key: "SELECT Brand WHERE name='{{ brand_name }}'"
       register: brand_query
 
-    - name: Définir brand_id complet (ex: Brand::54)
+    - name: "Définir brand_id depuis récupération"
+      when: brand_create.json.objects is not defined and (brand_query.json.objects | default([])) | length > 0
       set_fact:
-        brand_id: >-
-          {{
-            (brand_creation.json.objects | default({}) | dict2items | first).key
-            if brand_creation.json is defined and brand_creation.json.code == 0 else
-            (brand_query.json.objects | default({}) | dict2items | first).key
-          }}
-      when: >
-        (brand_creation.json is defined and brand_creation.json.code == 0 and
-        brand_creation.json.objects is defined and brand_creation.json.objects | length > 0)
-        or
-        (brand_query is defined and brand_query.json is defined and brand_query.json.objects is defined and
-        brand_query.json.objects | length > 0)
+        brand_id: "{{ brand_query.json.objects | dict2items | first.value.key }}"
 
-    ##########################
-    # Suite du playbook (modèle, osfamily, osversion) avec mêmes protections...
-    ##########################
+    - name: "Définir brand_id depuis création"
+      when: brand_create.json.objects is defined
+      set_fact:
+        brand_id: "{{ brand_create.json.objects | dict2items | first.value.key }}"
 
-    # Par exemple pour le modèle
-    - name: Créer le modèle (Model)
+    - name: "Créer le modèle (Model)"
       uri:
-        url: "{{ itop_url }}"
+        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
         method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
+        body_format: json
+        headers:
+          Authorization: "Basic {{ itop_auth }}"
         body:
-          json_data: >
-            {{
-              {
-                "operation": "core/create",
-                "class": "Model",
-                "comment": "Créé automatiquement",
-                "fields": {
-                  "name": model_name,
-                  "brand_id": brand_id
-                }
-              } | to_json
-            }}
-      register: model_creation
+          operation: core/create
+          class: Model
+          comment: "Création du modèle"
+          fields:
+            name: "{{ model_name }}"
+            brand_id: "Brand::{{ brand_id }}"
+      register: model_create
       failed_when: false
 
-    - name: Récupérer le modèle (Model) si création échouée
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        force_basic_auth: yes
-        body_format: form-urlencoded
-        body:
-          version: "1.3"
-          json_data: >
-            {{
-              {
-                "operation": "core/get",
-                "class": "Model",
-                "key": "SELECT Model WHERE name='{{ model_name }}'",
-                "version": "1.3"
-              } | to_json
-            }}
-      when: model_creation.json.code != 0
-      register: model_query
-
-    - name: Définir model_id complet (ex: Model::xx)
+    - name: "Définir model_id"
       set_fact:
-        model_id: >-
-          {{
-            (model_creation.json.objects | default({}) | dict2items | first).key
-            if model_creation.json is defined and model_creation.json.code == 0 else
-            (model_query.json.objects | default({}) | dict2items | first).key
-          }}
-      when: >
-        (model_creation.json is defined and model_creation.json.code == 0 and
-        model_creation.json.objects is defined and model_creation.json.objects | length > 0)
-        or
-        (model_query is defined and model_query.json is defined and model_query.json.objects is defined and
-        model_query.json.objects | length > 0)
+        model_id: "{{ model_create.json.objects | dict2items | first.value.key }}"
 
-    # Pareil pour OSFamily, OSVersion avec les mêmes gardes.
-
-    ##########################
-    # Afficher résultats
-    ##########################
-    - name: Afficher les résultats de création / récupération
-      debug:
-        msg:
-          - "Marque créée ou existante: {{ brand_creation.json | default(brand_query.json) }}"
-          - "Modèle créé ou existant: {{ model_creation.json | default(model_query.json) }}"
+    - name: "Créer le serveur (VirtualMachine)"
+      uri:
+        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
+        method: POST
+        body_format: json
+        headers:
+          Authorization: "Basic {{ itop_auth }}"
+        body:
+          operation: core/create
+          class: VirtualMachine
+          comment: "Création de la VM"
+          fields:
+            name: "{{ server_name }}"
+            org_id: "SELECT Organization WHERE name='{{ org_name }}'"
+            model_id: "Model::{{ model_id }}"
+            osfamily_id: "Other"
+            osversion_id: "Other"
+            status: "production"
+      register: server_create
