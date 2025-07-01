@@ -1,66 +1,43 @@
----
-- name: "Créer les serveurs dans iTop"
+- name: Enregistrer les serveurs dans iTop
   hosts: all
-  gather_facts: true
+  gather_facts: yes
+  vars:
+    itop_url: "http://10.0.57.36/web/webservices/rest.php"
+    itop_user: "rest_user"
+    itop_password: "RestUser@123"
+    default_org_id: "4"           # API Users
+    default_location_id: "3"      # Bamako
+
   tasks:
 
-    - name: "Déduire les infos système"
+    - name: Générer les données serveur à envoyer
       set_fact:
-        server_name: "{{ ansible_hostname }}"
-        model_name: "{{ ansible_product_name | default('unknown') }}"
-        os_name: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
-        org_name: "MyOrganization"
-
-    - name: "Récupérer l'organisation"
-      uri:
-        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
-        method: POST
-        body_format: json
-        headers:
-          Authorization: "Basic {{ itop_auth }}"
-        body:
-          operation: core/get
-          class: Organization
-          key: "SELECT Organization WHERE name='{{ org_name }}'"
-      register: org_query
-
-    - name: "Définir org_id"
-      set_fact:
-        org_id: "{{ org_query.json.objects | dict2items | first.value.key }}"
-
-    - name: "Récupérer le modèle (Model)"
-      uri:
-        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
-        method: POST
-        body_format: json
-        headers:
-          Authorization: "Basic {{ itop_auth }}"
-        body:
-          operation: core/get
-          class: Model
-          key: "SELECT Model WHERE name='{{ model_name }}'"
-      register: model_query
-
-    - name: "Définir model_id"
-      set_fact:
-        model_id: "{{ model_query.json.objects | dict2items | first.value.key }}"
-
-    - name: "Créer la machine virtuelle (VirtualMachine)"
-      uri:
-        url: "{{ itop_url }}/webservices/rest.php?version=1.3"
-        method: POST
-        body_format: json
-        headers:
-          Authorization: "Basic {{ itop_auth }}"
-        body:
-          operation: core/create
-          class: VirtualMachine
-          comment: "Création automatique via Ansible"
+        server_data:
+          operation: "core/create"
+          comment: "Création d’un serveur depuis Ansible"
+          class: "Server"
           fields:
-            name: "{{ server_name }}"
-            org_id: "Organization::{{ org_id }}"
-            model_id: "Model::{{ model_id }}"
-            status: "production"
-            osfamily_id: "Other"
-            osversion_id: "Other"
-      register: vm_create
+            name: "{{ ansible_hostname }}"
+            org_id: "{{ default_org_id }}"
+            location_id: "{{ default_location_id }}"
+            cpu: "{{ ansible_processor[1] | default('N/A') }}"
+            ram: "{{ ansible_memtotal_mb | default('0') }} MB"
+            osfamily: "{{ ansible_os_family }}"
+            osversion: "{{ ansible_distribution }} {{ ansible_distribution_version }}"
+            description: "Créé automatiquement par Ansible"
+
+    - name: Envoi à iTop via l’API REST
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        body_format: json
+        body: "{{ server_data }}"
+        return_content: yes
+      register: itop_response
+
+    - name: Afficher la réponse de l'API
+      debug:
+        var: itop_response.json
