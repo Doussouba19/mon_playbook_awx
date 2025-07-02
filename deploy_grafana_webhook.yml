@@ -1,0 +1,75 @@
+---
+- name: Déployer un endpoint webhook Grafana vers iTop
+  hosts: itop
+  become: yes
+  vars:
+    itop_webhook_path: "/var/www/html/itop/grafana_webhook.php"
+    itop_api_url: "http://10.0.57.36/itop/web/webservices/rest.php?version=1.3"
+    itop_login: "rest_user"
+    itop_password: "RestUser@123"
+    itop_org_id: "4"
+    itop_caller_id: "1"
+
+  tasks:
+
+    - name: Créer le fichier webhook PHP
+      copy:
+        dest: "{{ itop_webhook_path }}"
+        content: |
+          <?php
+          // Recevoir les données JSON du webhook Grafana
+          $json = file_get_contents('php://input');
+          $data = json_decode($json, true);
+
+          file_put_contents('/tmp/webhook_log.json', print_r($data, true));
+
+          $alert_status = $data['status'] ?? '';
+          $alert_name = $data['alerts'][0]['labels']['alertname'] ?? 'Unknown Alert';
+          $description = $data['alerts'][0]['annotations']['description'] ?? 'Alerte sans description';
+          $timestamp = date('Y-m-d H:i:s');
+
+          $api_url = "{{ itop_api_url }}";
+          $auth_user = "{{ itop_login }}";
+          $auth_pwd = "{{ itop_password }}";
+
+          if ($alert_status == 'firing') {
+              $payload = [
+                  'operation' => 'core/create',
+                  'comment' => 'Ticket depuis Grafana',
+                  'class' => 'UserRequest',
+                  'output_fields' => 'id',
+                  'fields' => [
+                      'org_id' => '{{ itop_org_id }}',
+                      'title' => "[Grafana] $alert_name",
+                      'description' => $description,
+                      'caller_id' => '{{ itop_caller_id }}',
+                      'impact' => '2',
+                      'urgency' => '2',
+                      'priority' => '2',
+                      'origin' => 'web',
+                  ]
+              ];
+
+              $options = [
+                  'http' => [
+                      'header'  => "Content-type: application/json\r\nAuthorization: Basic " . base64_encode("$auth_user:$auth_pwd"),
+                      'method'  => 'POST',
+                      'content' => json_encode($payload),
+                  ],
+              ];
+
+              $context  = stream_context_create($options);
+              $result = file_get_contents($api_url, false, $context);
+
+              file_put_contents('/tmp/grafana_ticket_create.json', $result);
+          }
+
+          echo json_encode(['status' => 'received']);
+          ?>
+
+    - name: Donner les droits corrects
+      file:
+        path: "{{ itop_webhook_path }}"
+        owner: www-data
+        group: www-data
+        mode: '0644'
