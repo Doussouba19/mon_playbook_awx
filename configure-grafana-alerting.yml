@@ -1,0 +1,85 @@
+---
+- name: Configurer Grafana pour l'envoi d'alertes email via Gmail
+  hosts: grafana
+  become: yes
+  vars:
+    grafana_ini_path: "/etc/grafana/grafana.ini"
+
+    smtp_user: "doussoubacamara42@gmail.com"
+    smtp_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          63373437663061316463393862626639663163363830653238333661383634396435323631376666
+          3338623438666463366465363665626233383531323136330a306139323535356635333836383732
+          35326166373863313931346362303263633930633133656439373136333238333233316265333730
+          6239623634306562660a376632346339636535343837336133323666373932336663373530333764
+          35353739653434333131666263323665333233386537633136343262303132343235
+
+    grafana_url: "http://10.0.57.35:3000"
+    grafana_admin_user: "admin"
+    grafana_admin_password: "12345"
+
+    contact_point_name: "Email Alert"
+    email_destination: "doussoubacamara42@gmail.com"
+
+  tasks:
+
+    - name: Sauvegarder le fichier grafana.ini
+      copy:
+        src: "{{ grafana_ini_path }}"
+        dest: "{{ grafana_ini_path }}.backup"
+        remote_src: yes
+
+    - name: Configurer SMTP Gmail dans grafana.ini
+      blockinfile:
+        path: "{{ grafana_ini_path }}"
+        marker: "; ANSIBLE MANAGED BLOCK - SMTP CONFIG"
+        block: |
+          [smtp]
+          enabled = true
+          host = smtp.gmail.com:587
+          user = {{ smtp_user }}
+          password = {{ smtp_password }}
+          from_address = {{ smtp_user }}
+          from_name = Grafana Alerts
+          startTLS_policy = Opportunistic
+
+    - name: Redémarrer le service Grafana
+      systemd:
+        name: grafana-server
+        state: restarted
+        enabled: yes
+
+    - name: Attendre que Grafana redémarre (jusqu’à 30s)
+      uri:
+        url: "{{ grafana_url }}/api/health"
+        method: GET
+        user: "{{ grafana_admin_user }}"
+        password: "{{ grafana_admin_password }}"
+        force_basic_auth: yes
+      register: grafana_health
+      retries: 10
+      delay: 3
+      until: grafana_health.status == 200
+
+    - name: Créer un contact point email dans Grafana
+      uri:
+        url: "{{ grafana_url }}/api/v1/provisioning/contact-points"
+        method: POST
+        user: "{{ grafana_admin_user }}"
+        password: "{{ grafana_admin_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          name: "{{ contact_point_name }}"
+          type: "email"
+          settings:
+            addresses: "{{ email_destination }}"
+            singleEmail: true
+        status_code: 200,409  # 409 = already exists
+      register: contact_point_result
+
+    - name: Afficher le résultat de l’API Grafana
+      debug:
+        var: contact_point_result.json
