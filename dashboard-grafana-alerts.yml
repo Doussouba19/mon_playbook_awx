@@ -1,11 +1,10 @@
-- name: Déployer dashboard Grafana + alertes CPU/MySQL
+- name: Déployer dashboard Grafana
   hosts: grafana
   become: yes
   vars:
     grafana_url: "http://10.0.57.35:3000"
     grafana_user: "admin"
     grafana_password: "12345"
-    contact_point_uid: "deqpjhe78lkowc"  # ton contact point notification
     prometheus_datasource_uid: "deq4dop13tgjkd"
 
   tasks:
@@ -31,10 +30,13 @@
             panels:
               - type: timeseries
                 title: "Charge CPU (1m)"
-                datasource: "{{ prometheus_datasource_uid }}"
+                datasource:
+                  type: prometheus
+                  uid: "{{ prometheus_datasource_uid }}"
                 targets:
                   - expr: avg(rate(node_cpu_seconds_total{mode='user'}[1m])) * 100
                     legendFormat: "CPU Usage"
+                    refId: A
                 fieldConfig:
                   defaults:
                     unit: "percent"
@@ -42,113 +44,17 @@
                 gridPos: { x: 0, y: 0, w: 12, h: 8 }
               - type: timeseries
                 title: "MySQL Service Status"
-                datasource: "{{ prometheus_datasource_uid }}"
+                datasource:
+                  type: prometheus
+                  uid: "{{ prometheus_datasource_uid }}"
                 targets:
                   - expr: mysql_up
                     legendFormat: "MySQL UP"
+                    refId: B
                 fieldConfig:
                   defaults:
                     unit: "none"
                   overrides: []
                 gridPos: { x: 12, y: 0, w: 12, h: 8 }
           overwrite: true
-        status_code: [200,202]
-
-    - name: Copier fichier provisioning alertes
-      copy:
-        content: |
-          groups:
-            - orgId: 1
-              name: Alerte Surveillance Serveur
-              folder: General
-              interval: 1m
-              rules:
-                - uid: alerte-cpu
-                  title: Alerte CPU Haute
-                  condition: B
-                  data:
-                    - refId: A
-                      relativeTimeRange:
-                        from: 300
-                        to: 0
-                      datasourceUid: "{{ prometheus_datasource_uid }}"
-                      model:
-                        expr: avg(rate(node_cpu_seconds_total{mode='user'}[1m])) * 100
-                        interval: ""
-                        format: time_series
-                        refId: A
-                        datasource:
-                          type: prometheus
-                          uid: "{{ prometheus_datasource_uid }}"
-                    - refId: B
-                      type: reduce
-                      settings:
-                        reducer: mean
-                      input: A
-                      conditions:
-                        - evaluator:
-                            params: [80]
-                            type: gt
-                          operator:
-                            type: and
-                          type: query
-                  for: 2m
-                  annotations:
-                    summary: "Utilisation CPU élevée"
-                  labels:
-                    severity: warning
-                  isPaused: false
-                  noDataState: NoData
-                  execErrState: Error
-                  notifications:
-                    - uid: "{{ contact_point_uid }}"
-
-                - uid: alerte-mysql
-                  title: Alerte MySQL DOWN
-                  condition: B
-                  data:
-                    - refId: A
-                      relativeTimeRange:
-                        from: 60
-                        to: 0
-                      datasourceUid: "{{ prometheus_datasource_uid }}"
-                      model:
-                        expr: mysql_up
-                        interval: ""
-                        format: time_series
-                        refId: A
-                        datasource:
-                          type: prometheus
-                          uid: "{{ prometheus_datasource_uid }}"
-                    - refId: B
-                      type: reduce
-                      settings:
-                        reducer: last
-                      input: A
-                      conditions:
-                        - evaluator:
-                            params: [1]
-                            type: lt
-                          operator:
-                            type: and
-                          type: query
-                  for: 1m
-                  annotations:
-                    summary: "Service MySQL est DOWN"
-                  labels:
-                    severity: critical
-                  isPaused: false
-                  noDataState: NoData
-                  execErrState: Error
-                  notifications:
-                    - uid: "{{ contact_point_uid }}"
-        dest: /etc/grafana/provisioning/alerting/alert-cpu-mysql.yaml
-        owner: root
-        group: grafana
-        mode: '0644'
-
-    - name: Redémarrer Grafana pour appliquer les alertes
-      systemd:
-        name: grafana-server
-        state: restarted
-        enabled: yes
+        status_code: [200, 202]
