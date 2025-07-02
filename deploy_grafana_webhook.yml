@@ -3,7 +3,7 @@
   hosts: itop
   become: yes
   vars:
-    itop_webhook_path: "/var/www/html/web/grafana2_webhook.php"
+    itop_webhook_path: "/var/www/html/web/grafana_webhook1.php"
     itop_api_url: "http://10.0.57.36/itop/web/webservices/rest.php?version=1.3"
     itop_login: "rest_user"
     itop_password: "RestUser@123"
