@@ -1,17 +1,18 @@
 ---
-- name: Créer un contact point Webhook dans Grafana avec auth basique
+- name: Configurer webhook Legacy Alerting dans Grafana
   hosts: grafana
   become: yes
   vars:
-    grafana_api_url: "http://10.0.57.35:3000/api/contact-points"
-    grafana_user: "admin"           # Remplace par ton login Grafana admin
-    grafana_password: "12345"       # Remplace par ton mot de passe Grafana admin
+    grafana_api_url_base: "http://10.0.57.35:3000/api"
+    grafana_user: "admin"
+    grafana_password: "12345"
     itop_webhook_url: "http://10.0.57.36/itop/web/webservices/rest.php?version=1.3"
+    datasource_uid: "deq4dop13tgjkd"
 
   tasks:
-    - name: Créer le contact point webhook iTop
+    - name: Créer le receiver webhook iTop (Legacy)
       uri:
-        url: "{{ grafana_api_url }}"
+        url: "{{ grafana_api_url_base }}/alert-notifications"
         method: POST
         user: "{{ grafana_user }}"
         password: "{{ grafana_password }}"
@@ -21,17 +22,63 @@
         body_format: json
         body:
           name: "iTop Webhook"
-          type: webhook
+          type: "webhook"
           settings:
             url: "{{ itop_webhook_url }}"
-            httpMethod: POST
+            httpMethod: "POST"
             autoResolve: true
-            maxRetries: 3
+            sendResolved: true
+          frequency: "1m"
           disableResolveMessage: false
-          enable: true
+          sendReminder: false
         status_code: [200, 202, 409]
-      register: grafana_response
+      register: receiver_response
 
-    - name: Afficher la réponse de Grafana
+    - name: Afficher la réponse création receiver
       debug:
-        var: grafana_response
+        var: receiver_response
+
+    - name: Créer une règle d'alerte "MySQL DOWN" liée au webhook
+      uri:
+        url: "{{ grafana_api_url_base }}/alerts"
+        method: POST
+        user: "{{ grafana_user }}"
+        password: "{{ grafana_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          dashboardUid: null
+          panelId: 1
+          name: "MySQL DOWN"
+          folderUid: "general"
+          condition: "A"
+          data:
+            - refId: "A"
+              relativeTimeRange:
+                from: 600
+                to: 0
+              datasourceUid: "{{ datasource_uid }}"
+              model:
+                expr: "mysql_up == 0"
+                format: "time_series"
+                interval: ""
+                intervalFactor: 2
+                legendFormat: ""
+                refId: "A"
+          noDataState: "NoData"
+          execErrState: "Error"
+          for: "5m"
+          annotations: {}
+          labels:
+            severity: "critical"
+          alerts:
+            - receiver: "iTop Webhook"
+          frequency: "1m"
+        status_code: [200, 202, 409]
+      register: alert_response
+
+    - name: Afficher la réponse création règle d'alerte
+      debug:
+        var: alert_response
