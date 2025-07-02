@@ -77,9 +77,31 @@
           settings:
             addresses: "{{ email_destination }}"
             singleEmail: true
-        status_code: 200,409  # 409 = already exists
+        status_code: 200,202,409  # 409 = already exists
       register: contact_point_result
 
     - name: Afficher le résultat de l’API Grafana
       debug:
         var: contact_point_result.json
+    - name: Créer une notification policy pour lier le contact point
+      uri:
+        url: "{{ grafana_url }}/api/v1/provisioning/policies"
+        method: POST
+        user: "{{ grafana_admin_user }}"
+        password: "{{ grafana_admin_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          receiver: "{{ contact_point_name }}"
+          group_by: ["alertname"]
+          group_wait: "10s"
+          group_interval: "1m"
+          repeat_interval: "4h"
+          routes:
+            - receiver: "{{ contact_point_name }}"
+              object_matchers: []
+        status_code: 200,202,409
+      register: notification_policy_result
+
