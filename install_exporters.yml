@@ -78,7 +78,7 @@
             state: started
             enabled: yes
 
-    # Redis Exporter Installation
+    # Redis Exporter Installation :utiliser en cas de besoin
     - name: Install Redis Exporter
       block:
         - name: Download Redis Exporter
@@ -192,7 +192,7 @@
             state: started
             enabled: yes
 
-    # NGINX Exporter Installation
+    # NGINX Exporter Installation :utiliser en cas de besoin
     - name: Install NGINX Exporter
       block:
         - name: Download NGINX Exporter
