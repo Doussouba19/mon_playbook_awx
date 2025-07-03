@@ -27,94 +27,72 @@
         mode: '0644'
         content: |
           <?php
-          $json = file_get_contents('php://input');
-          $data = json_decode($json, true);
+// Lire les données envoyées par Grafana
+$json = file_get_contents('php://input');
+$data = json_decode($json, true);
 
-          file_put_contents('/tmp/webhook_log.json', print_r($data, true));
+// Sauvegarder le JSON reçu pour debug
+file_put_contents('/tmp/grafana_test_input.txt', $json);
 
-          $alert_status = $data['status'] ?? '';
-          $alert_name = $data['alerts'][0]['labels']['alertname'] ?? 'Unknown Alert';
-          $description = $data['alerts'][0]['annotations']['description'] ?? 'Alerte sans description';
+// Variables d'authentification iTop
+$api_url = "http://10.0.57.36/web/webservices/rest.php?version=1.3";
+$auth_user = "rest_user";
+$auth_pwd = "RestUser@123";
+$org_id = "4";       // ID de l'organisation dans iTop
+$caller_id = "1";    // ID de l'utilisateur demandeur
 
-          $api_url = "{{ itop_api_url }}";
-          $auth_user = "{{ itop_login }}";
-          $auth_pwd = "{{ itop_password }}";
+// Extraire les données de l'alerte Grafana
+$alert_status = $data['status'] ?? '';
+$alert_name = $data['alerts'][0]['labels']['alertname'] ?? 'Unknown Alert';
+$description = $data['alerts'][0]['annotations']['description'] ?? 'Alerte sans description';
 
-          if ($alert_status == 'firing') {
-              $payload = [
-                  'operation' => 'core/create',
-                  'class' => 'UserRequest',
-                  'comment' => 'Création automatique depuis Grafana (firing)',
-                  'output_fields' => 'id',
-                  'fields' => [
-                      'org_id' => '{{ itop_org_id }}',
-                      'caller_id' => '{{ itop_caller_id }}',
-                      'title' => "[Grafana] $alert_name",
-                      'description' => $description,
-                      'impact' => '2',
-                      'urgency' => '2',
-                      'priority' => '2',
-                      'origin' => 'web'
-                  ]
-              ];
+// Si une alerte est active (firing), créer un ticket dans iTop
+if ($alert_status == 'firing') {
+    $payload = [
+        'operation' => 'core/create',
+        'class' => 'UserRequest',
+        'comment' => 'Création automatique depuis Grafana',
+        'auth_user' => $auth_user,
+        'auth_pwd' => $auth_pwd,
+        'fields' => [
+            'title' => "Alerte Grafana : $alert_name",
+            'description' => $description,
+            'org_id' => $org_id,
+            'caller_id' => $caller_id,
+            'impact' => '2',        // Medium
+            'urgency' => '2',       // Medium
+            'priority' => '2',      // Medium
+        ]
+    ];
 
-              $options = [
-                  'http' => [
-                      'header'  => "Content-type: application/json\r\nAuthorization: Basic " . base64_encode("$auth_user:$auth_pwd"),
-                      'method'  => 'POST',
-                      'content' => json_encode($payload),
-                  ],
-              ];
+    // Important : envoyer le payload comme json_data
+    $post_data = http_build_query(['json_data' => json_encode($payload)]);
 
-              $context = stream_context_create($options);
-              $result = file_get_contents($api_url, false, $context);
-              file_put_contents('/tmp/grafana_ticket_create.json', $result);
-          }
+    // Préparer la requête POST avec json_data
+    $options = [
+        'http' => [
+            'header'  => "Content-type: application/x-www-form-urlencoded\r\n",
+            'method'  => 'POST',
+            'content' => $post_data,
+        ]
+    ];
 
-          if ($alert_status == 'resolved') {
-              $search_title = "[Grafana] $alert_name";
+    $context  = stream_context_create($options);
+    $result = file_get_contents($api_url, false, $context);
 
-              $search_payload = [
-                  'operation' => 'core/get',
-                  'class' => 'UserRequest',
-                  'key' => "SELECT UserRequest WHERE title = \"$search_title\" AND status != 'closed'",
-                  'output_fields' => 'id, status'
-              ];
+    // Sauvegarder la réponse de l’API iTop pour debug
+    file_put_contents('/tmp/grafana_itop_response.txt', $result);
 
-              $options = [
-                  'http' => [
-                      'header'  => "Content-type: application/json\r\nAuthorization: Basic " . base64_encode("$auth_user:$auth_pwd"),
-                      'method'  => 'POST',
-                      'content' => json_encode($search_payload),
-                  ],
-              ];
+    if ($result === FALSE) {
+        http_response_code(500);
+        echo json_encode(["status" => "error", "message" => "Erreur lors de l'appel à l'API iTop"]);
+    } else {
+        http_response_code(200);
+        echo json_encode(["status" => "success", "itop_response" => json_decode($result, true)]);
+    }
+} else {
+    http_response_code(202);
+    echo json_encode(["status" => "ignored", "message" => "Alerte non firing (pas traitée)"]);
+}
+?>
 
-              $context = stream_context_create($options);
-              $result = file_get_contents($api_url, false, $context);
-              $response = json_decode($result, true);
-
-              if (!empty($response['objects'])) {
-                  foreach ($response['objects'] as $obj) {
-                      $ticket_id = $obj['fields']['id'];
-
-                      $update_payload = [
-                          'operation' => 'core/update',
-                          'class' => 'UserRequest',
-                          'key' => $ticket_id,
-                          'comment' => 'Clôture automatique depuis Grafana (resolved)',
-                          'fields' => [
-                              'status' => 'closed'
-                          ]
-                      ];
-
-                      $options['http']['content'] = json_encode($update_payload);
-                      $context = stream_context_create($options);
-                      $update_result = file_get_contents($api_url, false, $context);
-
-                      file_put_contents('/tmp/grafana_ticket_closed.json', $update_result);
-                  }
-              }
-          }
-
-          echo json_encode(['status' => 'processed']);
-          ?>
