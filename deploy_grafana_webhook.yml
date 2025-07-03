@@ -27,22 +27,37 @@
         mode: '0644'
         content: |
           <?php
-          header('Content-Type: application/json');
           $json = file_get_contents('php://input');
           $data = json_decode($json, true);
 
           file_put_contents('/tmp/webhook_log.json', print_r($data, true));
 
           $alert_status = $data['status'] ?? '';
-          $alert_name_raw = $data['alerts'][0]['labels']['alertname'] ?? 'Unknown Alert';
-          $alert_name = htmlspecialchars($alert_name_raw);
+          $alert_name = $data['alerts'][0]['labels']['alertname'] ?? 'Unknown Alert';
           $description = $data['alerts'][0]['annotations']['description'] ?? 'Alerte sans description';
 
           $api_url = "{{ itop_api_url }}";
           $auth_user = "{{ itop_login }}";
           $auth_pwd = "{{ itop_password }}";
 
-          function call_itop_api($payload, $api_url, $auth_user, $auth_pwd, $logfile) {
+          if ($alert_status == 'firing') {
+              $payload = [
+                  'operation' => 'core/create',
+                  'class' => 'UserRequest',
+                  'comment' => 'Création automatique depuis Grafana (firing)',
+                  'output_fields' => 'id',
+                  'fields' => [
+                      'org_id' => '{{ itop_org_id }}',
+                      'caller_id' => '{{ itop_caller_id }}',
+                      'title' => "[Grafana] $alert_name",
+                      'description' => $description,
+                      'impact' => '2',
+                      'urgency' => '2',
+                      'priority' => '2',
+                      'origin' => 'web'
+                  ]
+              ];
+
               $options = [
                   'http' => [
                       'header'  => "Content-type: application/json\r\nAuthorization: Basic " . base64_encode("$auth_user:$auth_pwd"),
@@ -50,35 +65,10 @@
                       'content' => json_encode($payload),
                   ],
               ];
-              $context  = stream_context_create($options);
+
+              $context = stream_context_create($options);
               $result = file_get_contents($api_url, false, $context);
-              if ($result === false) {
-                  file_put_contents($logfile, json_encode(error_get_last()));
-              } else {
-                  file_put_contents($logfile, $result);
-              }
-              return $result;
-          }
-
-          if ($alert_status == 'firing') {
-              $payload = [
-                  'operation' => 'core/create',
-                  'comment' => 'Création automatique depuis Grafana',
-                  'class' => 'UserRequest',
-                  'output_fields' => 'id',
-                  'fields' => [
-                      'org_id' => '{{ itop_org_id }}',
-                      'title' => "[Grafana] $alert_name",
-                      'description' => $description,
-                      'caller_id' => '{{ itop_caller_id }}',
-                      'impact' => '2',
-                      'urgency' => '2',
-                      'priority' => '2',
-                      'origin' => 'web',
-                  ]
-              ];
-
-              call_itop_api($payload, $api_url, $auth_user, $auth_pwd, '/tmp/grafana_ticket_create.json');
+              file_put_contents('/tmp/grafana_ticket_create.json', $result);
           }
 
           if ($alert_status == 'resolved') {
@@ -88,10 +78,19 @@
                   'operation' => 'core/get',
                   'class' => 'UserRequest',
                   'key' => "SELECT UserRequest WHERE title = \"$search_title\" AND status != 'closed'",
-                  'output_fields' => 'id, status',
+                  'output_fields' => 'id, status'
               ];
 
-              $result = call_itop_api($search_payload, $api_url, $auth_user, $auth_pwd, '/tmp/grafana_ticket_search.json');
+              $options = [
+                  'http' => [
+                      'header'  => "Content-type: application/json\r\nAuthorization: Basic " . base64_encode("$auth_user:$auth_pwd"),
+                      'method'  => 'POST',
+                      'content' => json_encode($search_payload),
+                  ],
+              ];
+
+              $context = stream_context_create($options);
+              $result = file_get_contents($api_url, false, $context);
               $response = json_decode($result, true);
 
               if (!empty($response['objects'])) {
@@ -102,13 +101,17 @@
                           'operation' => 'core/update',
                           'class' => 'UserRequest',
                           'key' => $ticket_id,
-                          'comment' => 'Clôture automatique depuis Grafana (alerte résolue)',
+                          'comment' => 'Clôture automatique depuis Grafana (resolved)',
                           'fields' => [
-                              'status' => 'closed',
+                              'status' => 'closed'
                           ]
                       ];
 
-                      call_itop_api($update_payload, $api_url, $auth_user, $auth_pwd, '/tmp/grafana_ticket_closed.json');
+                      $options['http']['content'] = json_encode($update_payload);
+                      $context = stream_context_create($options);
+                      $update_result = file_get_contents($api_url, false, $context);
+
+                      file_put_contents('/tmp/grafana_ticket_closed.json', $update_result);
                   }
               }
           }
