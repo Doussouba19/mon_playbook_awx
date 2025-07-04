@@ -1,0 +1,9 @@
+---
+- name: Restart MySQL service
+  hosts: grafana
+  become: yes
+  tasks:
+    - name: Redémarrer MySQL
+      service:
+        name: mysql
+        state: restarted
