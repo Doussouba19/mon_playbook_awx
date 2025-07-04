@@ -1,47 +1,12 @@
 ---
-- name: Restart MySQL Service and Close iTop Ticket
+- name: Redémarrer un service système
   hosts: all
   become: yes
   vars:
-    service_name: mysql
-    instance_ip: "10.0.57.34"
-    alert_name: "MySQL DOWN"
-    severity: "critical"
-    grafana_webhook_url: "http://10.0.57.36/web/grafana_webhook1.php"
+    service_name: mysql  # Valeur par défaut, sera remplacée par Semaphore
 
   tasks:
-    - name: Restart service
+    - name: Redémarrer le service
       ansible.builtin.systemd:
         name: "{{ service_name }}"
         state: restarted
-
-    - name: Wait for the service to be up
-      ansible.builtin.wait_for:
-        port: 3306
-        host: "{{ inventory_hostname }}"
-        timeout: 30
-      when: service_name == 'mysql'
-
-    - name: Close iTop ticket via Grafana Webhook
-      uri:
-        url: "{{ grafana_webhook_url }}"
-        method: POST
-        headers:
-          Content-Type: "application/json"
-        body_format: json
-        body: |
-          {
-            "status": "resolved",
-            "alerts": [
-              {
-                "labels": {
-                  "alertname": "{{ alert_name }}",
-                  "instance": "{{ instance_ip }}",
-                  "severity": "{{ severity }}"
-                },
-                "annotations": {
-                  "description": "Service restauré automatiquement par Ansible"
-                }
-              }
-            ]
-          }
