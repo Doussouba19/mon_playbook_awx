@@ -1,0 +1,10 @@
+---
+- name: Redémarrer nginx sur le serveur ciblé
+  hosts: "{{ target_host }}"
+  become: yes
+
+  tasks:
+    - name: Redémarrer le service nginx
+      systemd:
+        name: nginx
+        state: restarted
