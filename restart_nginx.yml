@@ -1,6 +1,6 @@
 ---
 - name: Redémarrer nginx sur le serveur ciblé
-  hosts: "{{ target_host }}"
+  hosts: grafana
   become: yes
 
   tasks:
