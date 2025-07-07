@@ -1,0 +1,25 @@
+---
+- name: Déployer script de monitoring nginx sur tous les serveurs
+  hosts: all
+  become: yes
+
+  tasks:
+    - name: Copier le script nginx_status.sh
+      copy:
+        dest: /usr/local/bin/nginx_status.sh
+        mode: '0755'
+        content: |
+          #!/bin/bash
+          OUTPUT="/var/lib/node_exporter/nginx_up.prom"
+          if systemctl is-active --quiet nginx; then
+              echo "nginx_up 1" > "$OUTPUT"
+          else
+              echo "nginx_up 0" > "$OUTPUT"
+          fi
+
+    - name: S'assurer que cron exécute le script chaque minute
+      cron:
+        name: "Surveillance nginx status"
+        user: root
+        minute: "*"
+        job: "/usr/local/bin/nginx_status.sh"
