@@ -5,7 +5,7 @@
   vars:
     provisioning_dir: "/etc/grafana/provisioning/alerting"
     contact_point_file: "itop-webhook.yaml"
-    webhook_url: "http://10.0.57.36/itop/web/webservices/rest.php?version=1.3"
+    webhook_url: "http://10.0.57.36/web/grafana_webhook1.php"
 
   tasks:
     - name: Créer le fichier de contact point YAML
