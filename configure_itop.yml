@@ -62,26 +62,4 @@
         login_user: "{{ mysql_root_user }}"
         login_password: "{{ mysql_root_password }}"
 
-    - name: Créer fichier XML de configuration silencieuse
-      copy:
-        dest: /var/www/html/itop-config-silent.xml
-        content: |
-          <?xml version="1.0" encoding="UTF-8"?>
-          <itop_install>
-            <target_env>production</target_env>
-
-            <database>
-              <server>localhost</server>
-              <user>{{ itop_db_user }}</user>
-              <pwd>{{ itop_db_password }}</pwd>
-              <name>{{ itop_db_name }}</name>
-              <prefix>itop_</prefix>
-            </database>
-
-            <selected_modules>authent-local,itop-config-mgmt,itop-tickets,itop-incident-mgmt,itop-request-mgmt,itop-change-mgmt</selected_modules>
-          </itop_install>
-
-   # - name: Lancer l’installation silencieuse de iTop
-     # command: php setup/unattended-install/unattended-install.php --param-file=../itop-config-silent.xml
-     # args:
-        #chdir: /var/www/html/web
+    
