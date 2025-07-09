@@ -1,5 +1,5 @@
 ---
-- name: Configurer iTop (Base de données + installation silencieuse)
+- name: Configurer iTop (Base de données )
   hosts: itop
   become: yes
 
