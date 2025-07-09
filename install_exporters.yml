@@ -4,15 +4,12 @@
   become: yes
   vars:
     node_exporter_version: "1.8.2"
-    redis_exporter_version: "v1.45.0"
     mysql_exporter_version: "0.17.2"
-    nginx_exporter_version: "1.4.2"
+   
     
     node_exporter_url: "https://github.com/prometheus/node_exporter/releases/download/v{{ node_exporter_version }}/node_exporter-{{ node_exporter_version }}.linux-amd64.tar.gz"
-    redis_exporter_url: "https://github.com/oliver006/redis_exporter/releases/download/{{ redis_exporter_version }}/redis_exporter-{{ redis_exporter_version }}.linux-amd64.tar.gz"
     mysqld_exporter_url: "https://github.com/prometheus/mysqld_exporter/releases/download/v{{ mysql_exporter_version }}/mysqld_exporter-{{ mysql_exporter_version }}.linux-amd64.tar.gz"
-    nginx_exporter_url: "https://github.com/nginxinc/nginx-prometheus-exporter/releases/download/v{{ nginx_exporter_version }}/nginx-prometheus-exporter_{{ nginx_exporter_version }}_linux_amd64.tar.gz"
-
+    
   tasks:
     - name: Install required packages
       apt:
@@ -77,64 +74,6 @@
             name: node_exporter
             state: started
             enabled: yes
-
-    # Redis Exporter Installation :utiliser en cas de besoin
-    - name: Install Redis Exporter
-      block:
-        - name: Download Redis Exporter
-          get_url:
-            url: "{{ redis_exporter_url }}"
-            dest: "/tmp/redis_exporter.tar.gz"
-
-        - name: Extract Redis Exporter
-          unarchive:
-            src: "/tmp/redis_exporter.tar.gz"
-            dest: "/tmp"
-            remote_src: yes
-
-        - name: Move Redis Exporter to /usr/local/bin
-          command:
-            cmd: mv /tmp/redis_exporter-{{ redis_exporter_version }}.linux-amd64/redis_exporter /usr/local/bin/
-
-        - name: Make Redis Exporter executable
-          file:
-            path: /usr/local/bin/redis_exporter
-            mode: '0755'
-
-        - name: Create redis_exporter user
-          user:
-            name: redis_exporter
-            shell: /bin/false
-            system: yes
-
-        - name: Create Redis Exporter systemd service
-          copy:
-            content: |
-              [Unit]
-              Description=Redis Exporter
-              Documentation=https://github.com/oliver006/redis_exporter
-
-              [Service]
-              ExecStart=/usr/local/bin/redis_exporter --redis.addr=redis://localhost:6379
-              User=redis_exporter
-              Group=redis_exporter
-              Restart=always
-
-              [Install]
-              WantedBy=multi-user.target
-            dest: /etc/systemd/system/redis_exporter.service
-            mode: '0644'
-
-        - name: Reload systemd
-          systemd:
-            daemon_reload: yes
-
-        - name: Start Redis Exporter service
-          systemd:
-            name: redis_exporter
-            state: started
-            enabled: yes
-
     # MySQL Exporter Installation
     - name: Install MySQL Exporter
       block:
@@ -192,60 +131,4 @@
             state: started
             enabled: yes
 
-    # NGINX Exporter Installation :utiliser en cas de besoin
-    - name: Install NGINX Exporter
-      block:
-        - name: Download NGINX Exporter
-          get_url:
-            url: "{{ nginx_exporter_url }}"
-            dest: "/tmp/nginx_exporter.tar.gz"
-
-        - name: Extract NGINX Exporter with strip components
-          unarchive:
-            src: "/tmp/nginx_exporter.tar.gz"
-            dest: "/tmp"
-            remote_src: yes
-            extra_opts: [--strip-components=1]
-
-        - name: Move NGINX Exporter binary to /usr/local/bin
-          command:
-            cmd: mv /tmp/nginx-prometheus-exporter /usr/local/bin/
-
-        - name: Make NGINX Exporter executable
-          file:
-            path: /usr/local/bin/nginx-prometheus-exporter
-            mode: '0755'
-
-        - name: Create nginx_exporter user
-          user:
-            name: nginx_exporter
-            shell: /bin/false
-            system: yes
-
-        - name: Create NGINX Exporter systemd service
-          copy:
-            content: |
-              [Unit]
-              Description=NGINX Exporter
-              Documentation=https://github.com/nginxinc/nginx-prometheus-exporter
-
-              [Service]
-              ExecStart=/usr/local/bin/nginx-prometheus-exporter -nginx.scrape-uri=http://localhost:8080/stub_status
-              User=nginx_exporter
-              Group=nginx_exporter
-              Restart=always
-
-              [Install]
-              WantedBy=multi-user.target
-            dest: /etc/systemd/system/nginx_exporter.service
-            mode: '0644'
-
-        - name: Reload systemd
-          systemd:
-            daemon_reload: yes
-
-        - name: Start NGINX Exporter service
-          systemd:
-            name: nginx_exporter
-            state: started
-            enabled: yes
+    
