@@ -1,0 +1,277 @@
+- name: Enregistrer automatiquement les serveurs dans iTop via API REST
+  hosts: all
+  gather_facts: yes
+  vars:
+    itop_url: "http://10.0.57.36/web/webservices/rest.php"
+    itop_user: "rest_user"
+    itop_password: "RestUser@123"
+    itop_version: "1.3"
+
+  tasks:
+    - name: Extraire infos serveur via facts - partie 1
+      set_fact:
+        server_ip: "{{ ansible_default_ipv4.address }}"
+        os_family_name: "{{ ansible_facts['os_family'] | default('non défini') }}"
+        os_version_name: "{{ ansible_facts['distribution'] | default('non défini') }} {{ ansible_facts['distribution_version'] | default('') }}"
+        server_name: "{{ inventory_hostname }}"
+        brand: "{{ ansible_facts['ansible_system_vendor'] | default('non défini') }}"
+        model: "{{ ansible_facts['ansible_product_name'] | default('non défini') }}"
+        serial_number: "{{ ansible_facts['ansible_serial_number'] | default('non défini') }}"
+        production_date: "{{ ansible_date_time.iso8601[:10] }}"
+        purchase_date: "{{ ansible_date_time.iso8601[:10] }}"
+        warranty_end_date: "{{ ansible_date_time.iso8601[:10] }}"
+        cpu: "{{ (ansible_facts['processor'][0] if ansible_facts['processor'] is defined and ansible_facts['processor'] | length > 0 else 'non défini') }}"
+        ram: "{{ (ansible_facts['memtotal_mb'] | default(0)) | string }} MB"
+        nb_unite: "1"
+        power_supply: "Standard"
+        power_source_a: "Grid A"
+        power_source_b: "Grid B"
+        redundancy: "Le Serveur est alimenté si au moins une source électrique (A ou B) est opérationnelle"
+        organisation: "API Users"
+        status: "Production"
+        criticity: "moyen"  # Valeur par défaut statique pour simplifier
+
+    - name: Extraire infos serveur via facts - partie 2 (asset_number)
+      set_fact:
+        asset_number: "{{ ansible_date_time.date }}-{{ brand | replace(' ', '') }}"
+
+    - name: Déduire site en fonction IP
+      set_fact:
+        site_name: >-
+          {% if server_ip.startswith('10.0.57.') %}
+            Bamako
+          {% else %}
+            Inconnu
+          {% endif %}
+
+    # --- Recherche OSFamily ---
+    - name: Chercher OSFamily dans iTop via filtre
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/get
+          version: "{{ itop_version }}"
+          class: OSFamily
+          key: ""
+          filters:
+            name: "{{ os_family_name }}"
+          output_fields: "id,name"
+        body_format: json
+        return_content: yes
+      register: osfamily_search
+
+    - name: Extraire osfamily_id
+      set_fact:
+        osfamily_id: >-
+          {% if osfamily_search.json.objects is defined and osfamily_search.json.objects | length > 0 %}
+            {{ (osfamily_search.json.objects | dict2items | first).value.id }}
+          {% else %}
+            ''
+          {% endif %}
+
+    - name: Créer OSFamily si absent
+      when: osfamily_id == ''
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/create
+          version: "{{ itop_version }}"
+          class: OSFamily
+          comment: "Créé automatiquement via Ansible"
+          fields:
+            name: "{{ os_family_name }}"
+        body_format: json
+        return_content: yes
+      register: osfamily_create
+
+    - name: Set osfamily_id après création
+      when: osfamily_id == '' and osfamily_create.json is defined
+      set_fact:
+        osfamily_id: "{{ osfamily_create.json.objects | dict2items | first | json_query('value.key') }}"
+
+    # --- Recherche OSVersion ---
+    - name: Chercher OSVersion dans iTop via filtre
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/get
+          version: "{{ itop_version }}"
+          class: OSVersion
+          key: ""
+          filters:
+            name: "{{ os_version_name }}"
+          output_fields: "id,name"
+        body_format: json
+        return_content: yes
+      register: osversion_search
+
+    - name: Extraire osversion_id
+      set_fact:
+        osversion_id: >-
+          {% if osversion_search.json.objects is defined and osversion_search.json.objects | length > 0 %}
+            {{ (osversion_search.json.objects | dict2items | first).value.id }}
+          {% else %}
+            ''
+          {% endif %}
+
+    - name: Créer OSVersion si absent
+      when: osversion_id == ''
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/create
+          version: "{{ itop_version }}"
+          class: OSVersion
+          comment: "Créé automatiquement via Ansible"
+          fields:
+            name: "{{ os_version_name }}"
+            osfamily_id: "{{ osfamily_id }}"
+        body_format: json
+        return_content: yes
+      register: osversion_create
+
+    - name: Set osversion_id après création
+      when: osversion_id == '' and osversion_create.json is defined
+      set_fact:
+        osversion_id: "{{ osversion_create.json.objects | dict2items | first | json_query('value.key') }}"
+
+    # --- Recherche Site (Location) ---
+    - name: Chercher site dans iTop via filtre
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/get
+          version: "{{ itop_version }}"
+          class: Location
+          key: ""
+          filters:
+            name: "{{ site_name }}"
+          output_fields: "id,name"
+        body_format: json
+        return_content: yes
+      register: site_search
+
+    - name: Extraire site_id
+      set_fact:
+        site_id: >-
+          {% if site_search.json.objects is defined and site_search.json.objects | length > 0 %}
+            {{ (site_search.json.objects | dict2items | first).value.id }}
+          {% else %}
+            ''
+          {% endif %}
+
+    - name: Créer site si absent
+      when: site_id == ''
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body:
+          operation: core/create
+          version: "{{ itop_version }}"
+          class: Location
+          comment: "Créé automatiquement via Ansible"
+          fields:
+            name: "{{ site_name }}"
+        body_format: json
+        return_content: yes
+      register: site_create
+
+    - name: Set site_id après création
+      when: site_id == '' and site_create.json is defined
+      set_fact:
+        site_id: "{{ site_create.json.objects | dict2items | first | json_query('value.key') }}"
+
+    # --- Création serveur avec format JSON explicite ---
+    - name: Créer le serveur dans iTop
+      uri:
+        url: "{{ itop_url }}"
+        method: POST
+        user: "{{ itop_user }}"
+        password: "{{ itop_password }}"
+        force_basic_auth: yes
+        headers:
+          Content-Type: "application/json"
+        body: |-
+          {
+            "operation": "core/create",
+            "version": "{{ itop_version }}",
+            "class": "Server",
+            "comment": "Créé automatiquement via Ansible",
+            "fields": {
+              "name": "{{ server_name }}",
+              "organisation": "{{ organisation }}",
+              "status": "{{ status }}",
+              "criticity": "{{ criticity }}",
+              "location_id": "{{ site_id }}",
+              "rack": "Default Rack",
+              "chassis": "Default Chassis",
+              "brand": "{{ brand }}",
+              "model": "{{ model }}",
+              "osfamily_id": "{{ osfamily_id }}",
+              "osversion_id": "{{ osversion_id }}",
+              "ip": "{{ server_ip }}",
+              "oslicense": "Open Source",
+              "cpu": "{{ cpu }}",
+              "ram": "{{ ram }}",
+              "nbunite": "{{ nb_unite }}",
+              "serialnumber": "{{ serial_number }}",
+              "assetnumber": "{{ asset_number }}",
+              "production_date": "{{ production_date }}",
+              "purchase_date": "{{ purchase_date }}",
+              "warranty_end_date": "{{ warranty_end_date }}",
+              "powersupply": "{{ power_supply }}",
+              "powersourcea": "{{ power_source_a }}",
+              "powersourceb": "{{ power_source_b }}",
+              "redundancy": "{{ redundancy }}",
+              "description": "{{ server_name }} - {{ site_name }}"
+            }
+          }
+        body_format: json
+        return_content: yes
+      register: server_create
+      failed_when: 
+        - server_create.status != 200
+        - "'objects' not in server_create.json"
+
+    - name: Extraire l'ID du serveur créé
+      set_fact:
+        server_id: "{{ (server_create.json.objects | dict2items | first).value.key }}"
+
+    - name: Afficher confirmation création serveur
+      debug:
+        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id }}"
