@@ -227,9 +227,7 @@
 
     # --- Création serveur ---
 
-
-
-    - name: Créer le serveur dans iTop
+    - name: Créer le serveur dans iTop (FORMAT CORRIGÉ)
       uri:
         url: "{{ itop_url }}"
         method: POST
@@ -238,44 +236,57 @@
         force_basic_auth: yes
         headers:
           Content-Type: "application/json"
-        body: |  # Format YAML multi-ligne
-          {
-            "operation": "core/create",
-            "version": "{{ itop_version }}",
-            "class": "Server",
-            "comment": "Créé automatiquement via Ansible",
-            "fields": {
-              "name": "{{ server_name }}",
-              "organisation": "{{ organisation }}",
-              "status": "{{ status }}",
-              "criticity": "{{ criticity }}",
-              "location_id": "{{ site_id }}",
-              "rack": "Default Rack",
-              "chassis": "Default Chassis",
-              "brand": "{{ brand }}",
-              "model": "{{ model }}",
-              "osfamily_id": "{{ osfamily_id }}",
-              "osversion_id": "{{ osversion_id }}",
-              "ip": "{{ server_ip }}",
-              "oslicense": "Open Source",
-              "cpu": "{{ cpu }}",
-              "ram": "{{ ram }}",
-              "nbunite": "{{ nb_unite }}",
-              "serialnumber": "{{ serial_number }}",
-              "assetnumber": "{{ asset_number }}",
-              "production_date": "{{ production_date }}",
-              "purchase_date": "{{ purchase_date }}",
-              "warranty_end_date": "{{ warranty_end_date }}",
-              "powersupply": "{{ power_supply }}",
-              "powersourcea": "{{ power_source_a }}",
-              "powersourceb": "{{ power_source_b }}",
-              "redundancy": "{{ redundancy }}",
-              "description": "{{ server_name }} - {{ site_name }}"
-            }
-          }
+        body:  # Format natif Ansible - plus fiable
+          operation: "core/create"
+          version: "{{ itop_version }}"
+          class: "Server"
+          comment: "Créé automatiquement via Ansible"
+          fields:
+            name: "{{ server_name }}"
+            organisation: "{{ organisation }}"
+            status: "{{ status }}"
+            criticity: >-
+              {% set cpu_usage = ansible_facts['processor_load'][0] | default(20) | float %}
+              {% if cpu_usage < 40 %}basse
+              {% elif cpu_usage < 70 %}moyen
+              {% else %}critique{% endif %}
+            location_id: "{{ site_id }}"
+            rack: "Default Rack"
+            chassis: "Default Chassis"
+            brand: "{{ brand }}"
+            model: "{{ model }}"
+            osfamily_id: "{{ osfamily_id }}"
+            osversion_id: "{{ osversion_id }}"
+            ip: "{{ server_ip }}"
+            oslicense: "Open Source"
+            cpu: "{{ cpu }}"
+            ram: "{{ ram }}"
+            nbunite: "{{ nb_unite }}"
+            serialnumber: "{{ serial_number }}"
+            assetnumber: "{{ asset_number }}"
+            production_date: "{{ production_date }}"
+            purchase_date: "{{ purchase_date }}"
+            warranty_end_date: "{{ warranty_end_date }}"
+            powersupply: "{{ power_supply }}"
+            powersourcea: "{{ power_source_a }}"
+            powersourceb: "{{ power_source_b }}"
+            redundancy: "{{ redundancy }}"
+            description: "{{ server_name }} - {{ site_name }}"
         body_format: json
         return_content: yes
+        status_code: 200  # On s'attend à un code 200 pour le succès
       register: server_create
+      failed_when: 
+        - server_create.status != 200
+        - "'objects' not in server_create.json"
+
+    - name: Extraire l'ID du serveur créé
+      set_fact:
+        server_id: "{{ (server_create.json.objects | dict2items | first).value.key }}"
+
+    - name: Afficher confirmation création serveur
+      debug:
+        msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id }}"
 
     # --- Gestion robuste de l'extraction d'ID ---
     - name: Extraire l'ID du serveur créé
