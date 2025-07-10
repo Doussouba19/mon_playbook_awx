@@ -236,7 +236,7 @@
         force_basic_auth: yes
         headers:
           Content-Type: "application/json"
-        body:  # Format natif Ansible - plus fiable
+        body:
           operation: "core/create"
           version: "{{ itop_version }}"
           class: "Server"
@@ -246,9 +246,9 @@
             organisation: "{{ organisation }}"
             status: "{{ status }}"
             criticity: >-
-              {% set cpu_usage = ansible_facts['processor_load'][0] | default(20) | float %}
-              {% if cpu_usage < 40 %}basse
-              {% elif cpu_usage < 70 %}moyen
+              {% set cpu_usage = ansible_facts['processor_vcpus'] | default(1) %}
+              {% if cpu_usage <= 2 %}basse
+              {% elif cpu_usage <= 4 %}moyen
               {% else %}critique{% endif %}
             location_id: "{{ site_id }}"
             rack: "Default Rack"
@@ -274,19 +274,29 @@
             description: "{{ server_name }} - {{ site_name }}"
         body_format: json
         return_content: yes
-        status_code: 200  # On s'attend à un code 200 pour le succès
       register: server_create
-      failed_when: 
-        - server_create.status != 200
-        - "'objects' not in server_create.json"
+      # Vérification stricte de la réponse API
+      failed_when: >
+        server_create.status != 200 or 
+        server_create.json.code is not defined or 
+        server_create.json.code != 0
+
+    - name: Debug API response if needed
+      debug:
+        var: server_create.json
+      when: server_create.failed
 
     - name: Extraire l'ID du serveur créé
       set_fact:
         server_id: "{{ (server_create.json.objects | dict2items | first).value.key }}"
+      when: 
+        - not server_create.failed
+        - server_create.json.objects is defined
 
     - name: Afficher confirmation création serveur
       debug:
         msg: "Serveur {{ server_name }} créé dans iTop avec ID {{ server_id }}"
+      when: server_id is defined
 
     # --- Gestion robuste de l'extraction d'ID ---
     - name: Extraire l'ID du serveur créé
