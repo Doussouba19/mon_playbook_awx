@@ -1,0 +1,58 @@
+---
+- name: Installation GitLab sur serveur distant
+  hosts: gitlab
+  become: yes
+
+  vars:
+    gitlab_external_url: "http://gitlab.local"  # adapte ici si tu utilises une IP locale
+    gitlab_package_url: "https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.deb.sh"
+
+  tasks:
+
+    - name: Mettre à jour les paquets
+      apt:
+        update_cache: yes
+        upgrade: dist
+
+    - name: Installer curl
+      apt:
+        name: curl
+        state: present
+
+    - name: Ajouter le dépôt GitLab
+      shell: |
+        curl -sS {{ gitlab_package_url }} | bash
+      args:
+        executable: /bin/bash
+
+    - name: Installer GitLab Community Edition
+      apt:
+        name: gitlab-ce
+        state: present
+
+    - name: Configurer l'URL externe de GitLab
+      lineinfile:
+        path: /etc/gitlab/gitlab.rb
+        regexp: '^external_url'
+        line: "external_url '{{ gitlab_external_url }}'"
+        create: yes
+
+    - name: Reconfigurer GitLab
+      shell: gitlab-ctl reconfigure
+
+    - name: Ouvrir les ports nécessaires dans UFW (si activé)
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      with_items:
+        - 22
+        - 80
+        - 443
+      when: ansible_facts['distribution'] == "Ubuntu"
+
+    - name: S'assurer que GitLab est démarré
+      service:
+        name: gitlab-runsvdir
+        state: started
+        enabled: yes
