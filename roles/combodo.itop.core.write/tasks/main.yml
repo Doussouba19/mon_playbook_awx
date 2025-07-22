@@ -1,5 +1,5 @@
 ---
-- name: Créer un serveur dans iTop
+- name: Créer un objet dans iTop via l’API REST
   uri:
     url: "{{ itop_url }}"
     method: POST
@@ -8,26 +8,17 @@
     force_basic_auth: yes
     body_format: form-urlencoded
     body:
-      version: "1.3"  # Obligatoire pour l'API iTop
-      json_data: >-
-        {{
-          {
-            "operation": "core/create",
-            "class": "Server",
-            "comment": "Création automatique via Ansible",
-            "fields": {
-              "name": ansible_hostname,
-              "org_id": default_org_id,
-              "location_id": default_location_id,
-              "cpu": ansible_processor[1] | default('Non spécifié'),
-              "ram": (ansible_memtotal_mb | default(0)) ~ " MB",
-              "description": "Serveur ajouté automatiquement par Ansible"
-            }
-          } | to_json
-        }}
+      version: "{{ itop_version }}"
+      json_data: >
+        {
+          "operation": "core/create",
+          "class": "{{ itop_class }}",
+          "comment": "Création depuis Ansible",
+          "fields": {{ itop_fields | to_json }}
+        }
     return_content: yes
-  register: itop_response
+  register: itop_result
 
-- name: Afficher la réponse d’iTop
+- name: Afficher la réponse de l’API iTop
   debug:
-    var: itop_response.content
+    var: itop_result.json
