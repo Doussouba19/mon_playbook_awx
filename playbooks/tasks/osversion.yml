@@ -1,0 +1,53 @@
+- name: Chercher OSVersion dans iTop
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/get
+      version: "{{ itop_version }}"
+      class: OSVersion
+      filters:
+        name: "{{ os_version_name }}"
+  register: osversion_search
+
+- name: Extraire osversion_id
+  set_fact:
+    osversion_id: >-
+      {% if osversion_search.json.objects is defined and osversion_search.json.objects | length > 0 %}
+        {{ (osversion_search.json.objects | dict2items | first).value.id }}
+      {% else %}
+        ""
+      {% endif %}
+
+- name: Créer OSVersion si absent
+  when: osversion_id == ""
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/create
+      version: "{{ itop_version }}"
+      class: OSVersion
+      fields:
+        name: "{{ os_version_name }}"
+        osfamily_id: "{{ osfamily_id }}"
+  register: osversion_create
+
+- name: Définir osversion_id après création
+  when: osversion_create.json.objects is defined
+  set_fact:
+    osversion_id: "{{ (osversion_create.json.objects | dict2items | first).value.key }}"
