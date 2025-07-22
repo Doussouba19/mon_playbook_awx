@@ -1,0 +1,52 @@
+- name: Chercher OSFamily dans iTop
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/get
+      version: "{{ itop_version }}"
+      class: OSFamily
+      filters:
+        name: "{{ os_family_name }}"
+  register: osfamily_search
+
+- name: Extraire osfamily_id
+  set_fact:
+    osfamily_id: >-
+      {% if osfamily_search.json.objects is defined and osfamily_search.json.objects | length > 0 %}
+        {{ (osfamily_search.json.objects | dict2items | first).value.id }}
+      {% else %}
+        ""
+      {% endif %}
+
+- name: Créer OSFamily si absent
+  when: osfamily_id == ""
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/create
+      version: "{{ itop_version }}"
+      class: OSFamily
+      fields:
+        name: "{{ os_family_name }}"
+  register: osfamily_create
+
+- name: Définir osfamily_id après création
+  when: osfamily_create.json.objects is defined
+  set_fact:
+    osfamily_id: "{{ (osfamily_create.json.objects | dict2items | first).value.key }}"
