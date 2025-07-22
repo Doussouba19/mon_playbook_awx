@@ -14,6 +14,17 @@
     return_content: yes
   register: osfamily_result
 
+ - name: Vérifier type des objets pour osfamily
+  debug:
+    msg: >
+      {% if osfamily_result.json.objects is mapping %}
+        dict
+      {% elif osfamily_result.json.objects is iterable %}
+        list
+      {% else %}
+        inconnu
+      {% endif %} 
+
 - name: Récupérer l'ID de OS Version
   uri:
     url: "{{ itop_url }}"
@@ -29,6 +40,17 @@
     return_content: yes
   register: osversion_result
 
+  - name: Vérifier type des objets pour osversion
+  debug:
+    msg: >
+      {% if osversion_result.json.objects is mapping %}
+        dict
+      {% elif osversion_result.json.objects is iterable %}
+        list
+      {% else %}
+        inconnu
+      {% endif %}
+
 - name: Récupérer l'ID de la Localisation
   uri:
     url: "{{ itop_url }}"
@@ -43,6 +65,17 @@
       key: "name = '{{ location_name }}'"
     return_content: yes
   register: location_result
+
+  - name: Vérifier type des objets pour locality
+  debug:
+    msg: >
+      {% if locality_result.json.objects is mapping %}
+        dict
+      {% elif locality_result.json.objects is iterable %}
+        list
+      {% else %}
+        inconnu
+      {% endif %}
 
 - name: Enregistrer les facts avec les IDs extraits
   set_fact:
