@@ -1,0 +1,25 @@
+---
+- name: Créer un objet dans iTop via l’API REST
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    force_basic_auth: yes
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    body: >
+      {
+        "operation": "core/create",
+        "class": "{{ itop_class }}",
+        "comment": "Création automatique via Ansible",
+        "output_fields": "id",
+        "fields": {{ itop_fields | to_json }}
+      }
+    status_code: 200
+  register: itop_result
+
+- name: Afficher la réponse iTop
+  debug:
+    var: itop_result.json
