@@ -1,88 +1,27 @@
 ---
 - name: Enregistrer automatiquement les serveurs dans iTop
   hosts: all
-  connection: local
-  gather_facts: yes
+  gather_facts: true
+  become: yes
   vars:
     itop_url: "http://10.0.57.36/web/webservices/rest.php"
     itop_user: "rest_user"
     itop_password: "RestUser@123"
-    itop_version: "1.3"
 
   tasks:
     - import_tasks: playbooks/tasks/osfamily.yml
     - import_tasks: playbooks/tasks/osversion.yml
     - import_tasks: playbooks/tasks/location.yml
-    - name: Collecter les infos du serveur
-      set_fact:
-        server_ip: "{{ ansible_default_ipv4.address }}"
-        server_name: "{{ inventory_hostname }}"
-        os_family_name: "{{ ansible_facts['os_family'] | default('unknown') }}"
-        os_version_name: "{{ ansible_facts['distribution'] | default('unknown') }} {{ ansible_facts['distribution_version'] | default('') }}"
-        site_name: >-
-          {% if server_ip.startswith('10.0.57.') %}
-            Bamako
-          {% else %}
-            Inconnu
-          {% endif %}
 
-    - name: Vérifier si le serveur existe déjà
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        force_basic_auth: yes
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        headers:
-          Content-Type: "application/json"
-        body_format: json
-        return_content: yes
-        body:
-          operation: core/get
-          version: "{{ itop_version }}"
-          class: Server
-          key: "SELECT Server WHERE name = '{{ server_name }}'"
-      register: server_check
-
-    - name: Gérer OSFamily
-      include_tasks: ../playbooks/tasks/osfamily.yml
-
-    - name: Gérer OSVersion
-      include_tasks: ../playbooks/tasks/osversion.yml
-
-    - name: Gérer Location
-      include_tasks: ../playbooks/tasks/location.yml
-
-    - name: Créer le serveur dans iTop si inexistant
-      when: server_check.json.objects is defined and server_check.json.objects | length == 0
-      uri:
-        url: "{{ itop_url }}"
-        method: POST
-        force_basic_auth: yes
-        user: "{{ itop_user }}"
-        password: "{{ itop_password }}"
-        headers:
-          Content-Type: "application/json"
-        body_format: json
-        return_content: yes
-        body:
-          operation: core/create
-          version: "{{ itop_version }}"
-          class: Server
-          fields:
-            name: "{{ server_name }}"
-            ip: "{{ server_ip }}"
-            osfamily_id: "{{ osfamily_id }}"
-            osversion_id: "{{ osversion_id }}"
-            location_id: "{{ site_id }}"
-            status: "production"
-      register: server_create
-
-    - name: Debug résultat de création
-      debug:
-        var: server_create.json.objects
-
-    - name: Afficher confirmation
-      debug:
-        msg: "Serveur {{ server_name }} créé avec ID {{ (server_create.json.objects | dict2items | first).value.key }}"
-      when: server_create is defined and server_create.json.objects is defined
+    - name: Créer le serveur dans iTop
+      include_role:
+        name: combodo.itop.core.write
+      vars:
+        itop_class: "Server"
+        itop_fields:
+          name: "{{ inventory_hostname }}"
+          organization_name: "API Users"
+          status: "production"
+          osfamily_name: "{{ os_family_name }}"
+          osversion_name: "{{ os_version_name }}"
+          location_name: "{{ location_name }}"
