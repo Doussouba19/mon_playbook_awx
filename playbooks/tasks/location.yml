@@ -1,0 +1,52 @@
+- name: Chercher Location dans iTop
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/get
+      version: "{{ itop_version }}"
+      class: Location
+      filters:
+        name: "{{ site_name }}"
+  register: site_search
+
+- name: Extraire site_id
+  set_fact:
+    site_id: >-
+      {% if site_search.json.objects is defined and site_search.json.objects | length > 0 %}
+        {{ (site_search.json.objects | dict2items | first).value.id }}
+      {% else %}
+        ""
+      {% endif %}
+
+- name: Créer Location si absente
+  when: site_id == ""
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    force_basic_auth: yes
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    headers:
+      Content-Type: "application/json"
+    body_format: json
+    return_content: yes
+    body:
+      operation: core/create
+      version: "{{ itop_version }}"
+      class: Location
+      fields:
+        name: "{{ site_name }}"
+  register: site_create
+
+- name: Définir site_id après création
+  when: site_create.json.objects is defined
+  set_fact:
+    site_id: "{{ (site_create.json.objects | dict2items | first).value.key }}"
