@@ -12,7 +12,7 @@
     - import_tasks: playbooks/tasks/osfamily.yml
     - import_tasks: playbooks/tasks/osversion.yml
     - import_tasks: playbooks/tasks/location.yml
-
+    - import_tasks: playbooks/tasks/get_ids.yml
     - name: Créer le serveur dans iTop
       include_role:
         name: combodo.itop.core.write
@@ -23,6 +23,9 @@
           name: "{{ inventory_hostname }}"
           org_id: "4"
           status: "production"
-          osfamily_name: "{{ os_family_name }}"
-          osversion_name: "{{ os_version_name }}"
-          location_name: "{{ location_name }}"
+          osfamily_id: "{{ osfamily_id }}"
+          osversion_id: "{{ osversion_id }}"
+          location_id: "{{ location_id }}"
+          cpu: "{{ ansible_processor[1] | default('N/A') }}"
+          ram: "{{ ansible_memtotal_mb | default('0') }} MB"
+          description: "Créé automatiquement par Ansible"
