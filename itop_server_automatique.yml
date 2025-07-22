@@ -21,7 +21,7 @@
         itop_class: "Server"
         itop_fields:
           name: "{{ inventory_hostname }}"
-          organization_name: "API Users"
+          org_name: "API Users"
           status: "production"
           osfamily_name: "{{ os_family_name }}"
           osversion_name: "{{ os_version_name }}"
