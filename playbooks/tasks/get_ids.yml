@@ -1,0 +1,12 @@
+---
+- name: Récupérer l'ID de osfamily
+  set_fact:
+    osfamily_id: "{{ lookup('itop', 'OSFamily', 'name', os_family_name) }}"
+
+- name: Récupérer l'ID de osversion
+  set_fact:
+    osversion_id: "{{ lookup('itop', 'OSVersion', 'name', os_version_name) }}"
+
+- name: Récupérer l'ID de location
+  set_fact:
+    location_id: "{{ lookup('itop', 'Location', 'name', location_name) }}"
