@@ -11,6 +11,7 @@
     body_format: json
     body: >
       {
+        "version": "1.3",
         "operation": "core/create",
         "class": "{{ itop_class }}",
         "comment": "Création automatique via Ansible",
