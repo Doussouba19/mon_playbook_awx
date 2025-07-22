@@ -1,12 +1,51 @@
 ---
-- name: Récupérer l'ID de osfamily
-  set_fact:
-    osfamily_id: "{{ lookup('itop', 'OSFamily', 'name', os_family_name) }}"
+- name: Récupérer l'ID de OS Family
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      operation: core/get
+      class: OSFamily
+      key: "name = '{{ os_family_name }}'"
+    return_content: yes
+  register: osfamily_result
 
-- name: Récupérer l'ID de osversion
-  set_fact:
-    osversion_id: "{{ lookup('itop', 'OSVersion', 'name', os_version_name) }}"
+- name: Récupérer l'ID de OS Version
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      operation: core/get
+      class: OSVersion
+      key: "name = '{{ os_version_name }}'"
+    return_content: yes
+  register: osversion_result
 
-- name: Récupérer l'ID de location
+- name: Récupérer l'ID de la Localisation
+  uri:
+    url: "{{ itop_url }}"
+    method: POST
+    user: "{{ itop_user }}"
+    password: "{{ itop_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      operation: core/get
+      class: Location
+      key: "name = '{{ location_name }}'"
+    return_content: yes
+  register: location_result
+
+- name: Enregistrer les facts avec les IDs extraits
   set_fact:
-    location_id: "{{ lookup('itop', 'Location', 'name', location_name) }}"
+    osfamily_id: "{{ (osfamily_result.json.objects | dict2items)[0].value.key }}"
+    osversion_id: "{{ (osversion_result.json.objects | dict2items)[0].value.key }}"
+    location_id: "{{ (location_result.json.objects | dict2items)[0].value.key }}"
