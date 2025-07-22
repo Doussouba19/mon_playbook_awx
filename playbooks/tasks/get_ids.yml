@@ -46,6 +46,6 @@
 
 - name: Enregistrer les facts avec les IDs extraits
   set_fact:
-    osfamily_id: "{{ (osfamily_result.json.objects | dict2items)[0].value.key }}"
-    osversion_id: "{{ (osversion_result.json.objects | dict2items)[0].value.key }}"
-    location_id: "{{ (location_result.json.objects | dict2items)[0].value.key }}"
+    osfamily_id: "{{ (osfamily_result.json.objects | default({})) | dict2items | first.value.key | default('') }}"
+    osversion_id: "{{ (osversion_result.json.objects | default({})) | dict2items | first.value.key | default('') }}"
+    location_id: "{{ (location_result.json.objects | default({})) | dict2items | first.value.key | default('') }}"
