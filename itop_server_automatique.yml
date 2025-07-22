@@ -3,7 +3,7 @@
   import_tasks:playbooks/tasks/osfamily.yml
   import_tasks:playbooks/tasks/osversion.yml
   import_tasks:playbooks/tasks/location.yml
-  hosts: Hosts
+  hosts: all
   connection: local
   gather_facts: yes
   vars:
