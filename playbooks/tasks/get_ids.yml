@@ -14,7 +14,7 @@
     return_content: yes
   register: osfamily_result
 
- - name: Vérifier type des objets pour osfamily
+- name: Vérifier type des objets pour osfamily
   debug:
     msg: >
       {% if osfamily_result.json.objects is mapping %}
@@ -23,7 +23,7 @@
         list
       {% else %}
         inconnu
-      {% endif %} 
+      {% endif %}
 
 - name: Récupérer l'ID de OS Version
   uri:
@@ -40,7 +40,7 @@
     return_content: yes
   register: osversion_result
 
-  - name: Vérifier type des objets pour osversion
+- name: Vérifier type des objets pour osversion
   debug:
     msg: >
       {% if osversion_result.json.objects is mapping %}
@@ -66,12 +66,12 @@
     return_content: yes
   register: location_result
 
-  - name: Vérifier type des objets pour locality
+- name: Vérifier type des objets pour locality
   debug:
     msg: >
-      {% if locality_result.json.objects is mapping %}
+      {% if location_result.json.objects is mapping %}
         dict
-      {% elif locality_result.json.objects is iterable %}
+      {% elif location_result.json.objects is iterable %}
         list
       {% else %}
         inconnu
