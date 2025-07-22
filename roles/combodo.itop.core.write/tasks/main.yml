@@ -9,15 +9,15 @@
     body_format: form-urlencoded
     body:
       version: "{{ itop_version }}"
-      json_data: >
-        {
-          "operation": "core/create",
-          "class": "{{ itop_class }}",
-          "comment": "Création depuis Ansible",
-          "fields": {{ itop_fields | to_json }}
-        }
+      json_data: "{{ {
+        'operation': 'core/create',
+        'class': itop_class,
+        'comment': 'Création depuis Ansible',
+        'fields': itop_fields
+      } | to_json }}"
     return_content: yes
   register: itop_result
+
 
 - name: Afficher la réponse de l’API iTop
   debug:
